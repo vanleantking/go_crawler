@@ -3,8 +3,9 @@ package settings
 import "time"
 
 const (
-	USERAGENTFILE = "../config/user_agents.json"
-	PROXYFILE     = "../config/proxy.json"
+	USERAGENTFILE = "./config/user_agents.json"
+	PROXYFILE     = "./config/proxy.json"
+	CONFIGFILE    = "./config/config.json"
 )
 
 var FreeProxy = []string{"http://spys.one/free-proxy-list/VN/", // complicated structure, not crawler, port write with document.write <= run script on web

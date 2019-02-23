@@ -2,27 +2,23 @@ package crawler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 
-	"../../utils"
 	"../settings"
+	"../utils"
 )
+
+var ConfigWeb = settings.SetConfig()
 
 type Crawler struct {
 	Client   *settings.Client
-	WS       *WebsiteStruct
+	WS       *settings.WebsiteConfig
 	CrResult *Result
-}
-
-type WebsiteStruct struct {
-	URL           string
-	Domain        string
-	ContentClass  string
-	CategoryClass string
 }
 
 type Result struct {
@@ -40,17 +36,15 @@ func (crw *Crawler) NewClient() {
 	crw.Client = client
 }
 
-func (crw *Crawler) CrawlerURL(website *WebsiteStruct) error {
+func (crw *Crawler) CrawlerURL(log_url string) error {
 
-	crw.WS = website
-	//Process on original log_url
-	log_url := strings.TrimSpace(crw.WS.URL)
+	crw.settingWebConfig(log_url)
 
 	var res *http.Response
 	var err error
 
 	// client initial request on original url
-	if website.Domain == "vietgiaitri.com" {
+	if crw.WS.SpecialHeader {
 		res, err = crw.Client.InitRequest2(log_url, "www.vietgiaitri.com")
 	} else {
 		res, err = crw.Client.InitRequest(log_url)
@@ -75,10 +69,10 @@ func (crw *Crawler) CrawlerURL(website *WebsiteStruct) error {
 	}
 
 	// Find the content page
-	result.content = utils.GetContentFromClass(crw.WS.ContentClass, doc)
+	result.content = utils.GetContentFromClass(crw.WS.ContentStruct, doc)
 	result.content = utils.StrimSpace(result.content)
 
-	result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryClass, doc)
+	result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryStruct, doc)
 	result.category_news = utils.StrimSpace(result.category_news)
 
 	// find title page
@@ -113,11 +107,11 @@ func (crw *Crawler) CrawlerURL(website *WebsiteStruct) error {
 					}
 
 					// Find the content
-					result.content = utils.GetContentFromClass(crw.WS.ContentClass, doc)
+					result.content = utils.GetContentFromClass(crw.WS.ContentStruct, doc)
 					result.content = utils.StrimSpace(result.content)
 
 					// Find the category on new url
-					result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryClass, doc)
+					result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryStruct, doc)
 					result.category_news = utils.StrimSpace(result.category_news)
 				}
 			}
@@ -130,4 +124,15 @@ func (crw *Crawler) CrawlerURL(website *WebsiteStruct) error {
 	}
 	crw.CrResult = &result
 	return nil
+}
+
+func (crw *Crawler) settingWebConfig(log_url string) {
+	u, err := url.Parse(log_url)
+	if err != nil {
+		fmt.Println("Can not get website config from url, ", log_url, err.Error())
+		panic(err)
+	}
+	domain := utils.GetDomainName(u.Hostname())
+	websiteStruct := ConfigWeb[domain]
+	crw.WS = &websiteStruct
 }
