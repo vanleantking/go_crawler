@@ -1,0 +1,133 @@
+package crawler
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+
+	"../../utils"
+	"../settings"
+)
+
+type Crawler struct {
+	Client   *settings.Client
+	WS       *WebsiteStruct
+	CrResult *Result
+}
+
+type WebsiteStruct struct {
+	URL           string
+	Domain        string
+	ContentClass  string
+	CategoryClass string
+}
+
+type Result struct {
+	content       string
+	title         string
+	category_news string
+}
+
+func (crw *Crawler) Getresult() (string, string, string) {
+	return crw.CrResult.title, crw.CrResult.content, crw.CrResult.category_news
+}
+
+func (crw *Crawler) NewClient() {
+	client := settings.NewClient()
+	crw.Client = client
+}
+
+func (crw *Crawler) CrawlerURL(website *WebsiteStruct) error {
+
+	crw.WS = website
+	//Process on original log_url
+	log_url := strings.TrimSpace(crw.WS.URL)
+
+	var res *http.Response
+	var err error
+
+	// client initial request on original url
+	if website.Domain == "vietgiaitri.com" {
+		res, err = crw.Client.InitRequest2(log_url, "www.vietgiaitri.com")
+	} else {
+		res, err = crw.Client.InitRequest(log_url)
+	}
+
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	var result = Result{}
+
+	// Continue if Response code is success
+	if res.StatusCode != 200 {
+		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
+		return errors.New(msg)
+	}
+	// Load the HTML document
+	doc, docer := goquery.NewDocumentFromReader(res.Body)
+	if docer != nil {
+		return docer
+	}
+
+	// Find the content page
+	result.content = utils.GetContentFromClass(crw.WS.ContentClass, doc)
+	result.content = utils.StrimSpace(result.content)
+
+	result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryClass, doc)
+	result.category_news = utils.StrimSpace(result.category_news)
+
+	// find title page
+	result.title = utils.GetContentFromTag("title", doc)
+	result.title = utils.StrimSpace(result.title)
+
+	// Can get content from original class structure and log url
+	if result.content == "" {
+		parsed_url, err := utils.GetCrawlURL(log_url)
+
+		// Parse processed url success
+		if err == nil {
+			// only initial another request if url is parsed
+			if parsed_url != log_url {
+
+				// initial another request on parse url
+				res, err := crw.Client.InitRequest(parsed_url)
+
+				// initial request error
+				if err != nil {
+					return err
+				}
+				defer res.Body.Close()
+
+				// Continue if Response code is success, process on url parsed
+				if res.StatusCode == 200 {
+					// Load the HTML document
+					doc, docer := goquery.NewDocumentFromReader(res.Body)
+					// continue to next content_news when can not read, and do nothing
+					if docer != nil {
+						return docer
+					}
+
+					// Find the content
+					result.content = utils.GetContentFromClass(crw.WS.ContentClass, doc)
+					result.content = utils.StrimSpace(result.content)
+
+					// Find the category on new url
+					result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryClass, doc)
+					result.category_news = utils.StrimSpace(result.category_news)
+				}
+			}
+
+			// Parse url failed
+		} else {
+			msg := "parse URL failed: " + crw.WS.URL
+			return errors.New(msg)
+		}
+	}
+	crw.CrResult = &result
+	return nil
+}
