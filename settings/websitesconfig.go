@@ -14,7 +14,10 @@ type WebsiteConfig struct {
 	ContentStruct  string `json:"content_class"`
 	CategoryStruct string `json:"category_class"`
 	DateStruct     string `json:"date_class"`
+	Description    string `json:"meta_description"`
+	Keywords       string `json:"meta_keyword"`
 	SpecialHeader  bool   `json:"special_header"`
+	Category       string `json:"category"`
 }
 
 type Config struct {

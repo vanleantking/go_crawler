@@ -2,10 +2,10 @@ package crawler
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -16,19 +16,21 @@ import (
 var ConfigWeb = settings.SetConfig()
 
 type Crawler struct {
-	Client   *settings.Client
-	WS       *settings.WebsiteConfig
-	CrResult *Result
+	Client *settings.Client
+	WS     *settings.WebsiteConfig
+	*Result
 }
 
 type Result struct {
 	content       string
 	title         string
 	category_news string
+	keyword       []string
+	description   string
 }
 
-func (crw *Crawler) Getresult() (string, string, string) {
-	return crw.CrResult.title, crw.CrResult.content, crw.CrResult.category_news
+func (crw *Crawler) Getresult() (string, string, string, string, []string) {
+	return crw.title, crw.content, crw.category_news, crw.description, crw.keyword
 }
 
 func (crw *Crawler) NewClient() {
@@ -122,17 +124,43 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 			return errors.New(msg)
 		}
 	}
-	crw.CrResult = &result
+	crw.Result = &result
+	crw.GetKeywords(doc)
+	crw.GetDescription(doc)
 	return nil
 }
 
 func (crw *Crawler) settingWebConfig(log_url string) {
 	u, err := url.Parse(log_url)
 	if err != nil {
-		fmt.Println("Can not get website config from url, ", log_url, err.Error())
 		panic(err)
 	}
 	domain := utils.GetDomainName(u.Hostname())
 	websiteStruct := ConfigWeb[domain]
 	crw.WS = &websiteStruct
+}
+
+func (result *Result) GetMetaTag(tag string, doc *goquery.Document) string {
+	metaContent := ""
+
+	doc.Find("meta").Each(func(i int, s *goquery.Selection) {
+		if name, _ := s.Attr("name"); name == tag {
+			metaContent, _ = s.Attr("content")
+		}
+	})
+	return metaContent
+}
+
+func (crw *Crawler) GetKeywords(doc *goquery.Document) {
+	keywordstr := crw.Result.GetMetaTag(crw.WS.Keywords, doc)
+	var keywords = []string{}
+	pieces := strings.Split(keywordstr, ",")
+	for _, k := range pieces {
+		keywords = append(keywords, strings.TrimSpace(k))
+	}
+	crw.Result.keyword = keywords
+}
+
+func (crw *Crawler) GetDescription(doc *goquery.Document) {
+	crw.Result.description = crw.Result.GetMetaTag(crw.WS.Description, doc)
 }

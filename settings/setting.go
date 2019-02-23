@@ -118,6 +118,7 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	flag := 0
 	re_error := errors.New("")
 	for flag < 10 {
+
 		resp, err := c.client.Do(req)
 		if err != nil {
 			flag++
@@ -133,7 +134,6 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 }
 
 func (client *Client) InitRequest(url string) (*http.Response, error) {
-
 	header := Header{
 		Referrer:               "https://www.google.com.vn/",
 		Accept:                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
@@ -158,7 +158,6 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 }
 
 func (client *Client) InitRequest2(url string, host_name string) (*http.Response, error) {
-
 	header := Header{
 		Referrer:               "http://vietgiaitri.com/",
 		Accept:                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
