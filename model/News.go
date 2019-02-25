@@ -11,6 +11,7 @@ type News struct {
 	Content     string             `json:"content" bson:"content"`
 	Description string             `json:"description" bson:"description"`
 	Keywords    string             `json:"keywords" bson:"keywords"`
+	NewKeyWords string             `json:"new_keywords" bson:"new_keywords"`
 	Meta        string             `json:"meta" bson:"meta"`
 	PublishDate string             `json:"publish_date" bson:"publish_date"`
 	Words       string             `json:"words" bson:"words"`
