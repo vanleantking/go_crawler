@@ -196,13 +196,3 @@ func NewClient() *Client {
 
 	return c
 }
-
-func NewClient2() *Client {
-	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-	httpClient := http.Client{Timeout: HttpTimeout2, Transport: nil, CheckRedirect: nil, Jar: jar}
-
-	c := &Client{client: &httpClient}
-	c.SetProxy()
-
-	return c
-}

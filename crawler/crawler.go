@@ -27,10 +27,11 @@ type Result struct {
 	category_news string
 	keyword       []string
 	description   string
+	meta          map[string]string
 }
 
-func (crw *Crawler) Getresult() (string, string, string, string, []string) {
-	return crw.title, crw.content, crw.category_news, crw.description, crw.keyword
+func (crw *Crawler) Getresult() (string, string, string, string, []string, map[string]string) {
+	return crw.title, crw.content, crw.category_news, crw.description, crw.keyword, crw.meta
 }
 
 func (crw *Crawler) NewClient() {
@@ -127,6 +128,7 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 	crw.Result = &result
 	crw.GetKeywords(doc)
 	crw.GetDescription(doc)
+	crw.GetMetaTags(doc)
 	return nil
 }
 
@@ -149,6 +151,16 @@ func (result *Result) GetMetaTag(tag string, doc *goquery.Document) string {
 		}
 	})
 	return metaContent
+}
+
+func (crw *Crawler) GetMetaTags(doc *goquery.Document) {
+	var metas = map[string]string{}
+
+	doc.Find("meta").Each(func(i int, s *goquery.Selection) {
+		name, _ := s.Attr("name")
+		metas[name], _ = s.Attr("content")
+	})
+	crw.meta = metas
 }
 
 func (crw *Crawler) GetKeywords(doc *goquery.Document) {

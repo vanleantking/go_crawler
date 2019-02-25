@@ -8,16 +8,17 @@ import (
 )
 
 type WebsiteConfig struct {
-	Domain         string `json:"domain"`
-	Hostname       string `json:"host_name"`
-	URL            string `json:"url"`
-	ContentStruct  string `json:"content_class"`
-	CategoryStruct string `json:"category_class"`
-	DateStruct     string `json:"date_class"`
-	Description    string `json:"meta_description"`
-	Keywords       string `json:"meta_keyword"`
-	SpecialHeader  bool   `json:"special_header"`
-	Category       string `json:"category"`
+	Domain         string   `json:"domain"`
+	Hostname       string   `json:"host_name"`
+	URL            string   `json:"url"`
+	ContentStruct  string   `json:"content_class"`
+	CategoryStruct string   `json:"category_class"`
+	DateStruct     string   `json:"date_class"`
+	Description    string   `json:"meta_description"`
+	Keywords       string   `json:"meta_keyword"`
+	SpecialHeader  bool     `json:"special_header"`
+	Category       string   `json:"category"`
+	Meta           []string `json:"meta_tag"`
 }
 
 type Config struct {

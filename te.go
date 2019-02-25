@@ -29,7 +29,7 @@ func main() {
 	log.Println("enter crawler")
 	crawler.CrawlerURL("https://vnexpress.net/phap-luat/cuu-bo-truong-truong-minh-tuan-bi-bat-3885283.html")
 	log.Println("out crawler")
-	_, _, _, _, keywords := crawler.Getresult()
-	fmt.Println(keywords)
+	_, _, _, _, keywords, metas := crawler.Getresult()
+	fmt.Println(keywords, metas)
 	log.Println("success")
 }

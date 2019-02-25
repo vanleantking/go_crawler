@@ -22,4 +22,5 @@ var UserAgentString = []string{"http://useragentstring.com/pages/useragentstring
 	"https://developers.whatismybrowser.com/useragents/explore/software_name/chrome/2"}
 
 var HttpTimeout = time.Duration(5 * time.Second)
-var HttpTimeout2 = time.Duration(5 * time.Second)
+
+// var HttpTimeout2 = time.Duration(5 * time.Second)
