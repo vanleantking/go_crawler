@@ -11,6 +11,9 @@ type WebsiteConfig struct {
 	Domain         string   `json:"domain"`
 	Hostname       string   `json:"host_name"`
 	URL            string   `json:"url"`
+	ListNews       string   `json:"list_news"`
+	TitleNews      string   `json:"title_news"`
+	PaginateRegex  string   `json:"paginate_rexp"`
 	ContentStruct  string   `json:"content_class"`
 	CategoryStruct string   `json:"category_class"`
 	DateStruct     string   `json:"date_class"`
@@ -19,6 +22,7 @@ type WebsiteConfig struct {
 	SpecialHeader  bool     `json:"special_header"`
 	Category       string   `json:"category"`
 	Meta           []string `json:"meta_tag"`
+	HomePage       bool     `json:"homepage"`
 }
 
 type Config struct {

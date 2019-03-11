@@ -198,3 +198,15 @@ func ConnectMySQL() (*sql.DB, error) {
 func GetDomainName(hostname string) string {
 	return strings.Replace(hostname, "www.", "", -1)
 }
+
+func GetCategoryLink(list_news string, title_news string, doc *goquery.Document) []string {
+	var links = []string{}
+	doc.Find(list_news).Each(func(i int, s *goquery.Selection) {
+		href := s.Find(title_news)
+		if link, ok := href.Attr("href"); ok {
+			links = append(links, link)
+		}
+	})
+	return links
+
+}

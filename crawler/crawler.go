@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -175,4 +176,40 @@ func (crw *Crawler) GetKeywords(doc *goquery.Document) {
 
 func (crw *Crawler) GetDescription(doc *goquery.Document) {
 	crw.Result.description = crw.Result.GetMetaTag(crw.WS.Description, doc)
+}
+
+func (crw *Crawler) FetchURL() {
+	for _, config := range ConfigWeb {
+		// for i := 0; i < 2; i++ {
+		crawl_url := config.URL// + config.PaginateRegex + strconv.Itoa(i)
+		var res *http.Response
+		var err error
+
+		// client initial request on original url
+		if config.SpecialHeader {
+			res, err = crw.Client.InitRequest2(crawl_url, config.Hostname)
+		} else {
+			res, err = crw.Client.InitRequest(crawl_url)
+		}
+
+		if err != nil {
+			panic(err.Error())
+		}
+		defer res.Body.Close()
+
+		// Continue if Response code is success
+		if res.StatusCode != 200 {
+			msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
+			// return errors.New(msg)
+			panic(msg)
+		}
+		// Load the HTML document
+		doc, docer := goquery.NewDocumentFromReader(res.Body)
+		if docer != nil {
+			panic(docer.Error())
+		}
+		links := utils.GetCategoryLink(config.ListNews, config.TitleNews, doc)
+		fmt.Println(links)
+		// }
+	}
 }

@@ -26,6 +26,8 @@ func main() {
 
 	crawler := &crawler.Crawler{}
 	crawler.NewClient()
+	crawler.FetchURL()
+	return
 	log.Println("enter crawler")
 	er := crawler.CrawlerURL("https://vnexpress.net/phap-luat/cuu-bo-truong-truong-minh-tuan-bi-bat-3885283.html")
 	log.Println("out crawler", er)
