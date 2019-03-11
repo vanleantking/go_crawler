@@ -15,4 +15,5 @@ type News struct {
 	Meta        string             `json:"meta" bson:"meta"`
 	PublishDate string             `json:"publish_date" bson:"publish_date"`
 	Words       string             `json:"words" bson:"words"`
+	IsSuccess   bool               `json:"is_success" bson:"is_success"`
 }

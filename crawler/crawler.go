@@ -48,7 +48,7 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 
 	// client initial request on original url
 	if crw.WS.SpecialHeader {
-		res, err = crw.Client.InitRequest2(log_url, "www.vietgiaitri.com")
+		res, err = crw.Client.InitRequest2(log_url, crw.WS.Hostname)
 	} else {
 		res, err = crw.Client.InitRequest(log_url)
 	}
