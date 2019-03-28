@@ -14,6 +14,47 @@ type ClientMGO struct {
 	CancelFunc context.CancelFunc
 }
 
+type DBInfo struct {
+	Address  string
+	Port     string
+	Database string
+	Username string
+	Password string
+}
+
+var DBCONFIG = map[string]DBInfo{
+	"data_only": DBInfo{
+		Address:  ADDRESS,
+		Port:     PORT2,
+		Database: DATABASE2,
+		Username: USERNAME2,
+		Password: PASSWORD2},
+	"dmplog": DBInfo{
+		Address:  DMP_LOG,
+		Port:     PORT3,
+		Database: DATABASE4,
+		Username: USERNAME4,
+		Password: PASSWORD4},
+	"ip_info": DBInfo{
+		Address:  IPINFO,
+		Port:     PORT4,
+		Database: DATABASE3,
+		Username: USERNAME5,
+		Password: PASSWORD5},
+	"dmp_data": DBInfo{
+		Address:  MY_HOST,
+		Port:     PORT1,
+		Database: DATABASE3,
+		Username: USERNAME3,
+		Password: PASSWORD3},
+	"history_only": DBInfo{
+		Address:  HISTORY_ONLY,
+		Port:     PORT1,
+		Database: DATABASE1,
+		Username: USERNAME1,
+		Password: PASSWORD1},
+}
+
 func ConnectMongoDB(database string) (error, *ClientMGO) {
 	dbInfo := DBCONFIG[database]
 	link := "mongodb://" + dbInfo.Username + ":" + dbInfo.Password + "@" + dbInfo.Address + ":" + dbInfo.Port + "/" + dbInfo.Database

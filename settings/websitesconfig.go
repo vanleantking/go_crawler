@@ -10,7 +10,7 @@ import (
 type WebsiteConfig struct {
 	Domain         string   `json:"domain"`
 	Hostname       string   `json:"host_name"`
-	URL            string   `json:"url"`
+	Url            string   `json:"validate_url"`
 	ListNews       string   `json:"list_news"`
 	TitleNews      string   `json:"title_news"`
 	PaginateRegex  string   `json:"paginate_rexp"`
