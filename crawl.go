@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,7 @@ var (
 	IDTabView        = "view-tab"
 	Result           = map[string][]string{}
 	fromDate         = "2001-01-01"
+	DateRegexp       = `\d{4,}`
 
 	Stock = map[string][]StockInfo{
 		"HOSE": []StockInfo{
@@ -38,14 +41,14 @@ type StockInfo struct {
 }
 
 type LastDay struct {
-	CloseIndex  float32 `json:"CloseIndex"`
-	PriorIndex  float32 `json:"PriorIndex"`
-	Change      float32 `json:"Change"`
-	PerChange   float32 `json:"PerChange"`
+	CloseIndex  float64 `json:"CloseIndex"`
+	PriorIndex  float64 `json:"PriorIndex"`
+	Change      float64 `json:"Change"`
+	PerChange   float64 `json:"PerChange"`
 	ChangeColor string  `json:"ChangeColor"`
 	ChangeText  string  `json:"ChangeText"`
 	TrDate      int64   `json:"TrDate"`
-	TranNo      int64   `json:"TranNo"`
+	TranNo      float64 `json:"TranNo"`
 }
 
 type PriceDay struct {
@@ -59,17 +62,17 @@ type PriceDay struct {
 	HighestPrice int64   `json:"HighestPrice"`
 	LowestPrice  int64   `json:"LowestPrice"`
 	AvrPrice     int64   `json:"AvrPrice"`
-	Change       int32   `json:"Change"`
-	PerChange    float32 `json:"PerChange"`
+	Change       int64   `json:"Change"`
+	PerChange    float64 `json:"PerChange"`
 	ChangeColor  string  `json:"ChangeColor"`
 	ChangeImage  string  `json:"ChangeImage"`
-	M_TotalVol   int32   `json:"M_TotalVol"`
-	M_TotalVal   float32 `json:"M_TotalVal"`
-	PT_TotalVol  float32 `json:"PT_TotalVol"`
-	PT_TotalVal  float32 `json:"PT_TotalVal"`
-	TotalVol     int32   `json:"TotalVol"`
-	TotalVal     float32 `json:"TotalVal"`
-	MarketCap    float32 `json:"MarketCap"`
+	M_TotalVol   int64   `json:"M_TotalVol"`
+	M_TotalVal   float64 `json:"M_TotalVal"`
+	PT_TotalVol  float64 `json:"PT_TotalVol"`
+	PT_TotalVal  float64 `json:"PT_TotalVal"`
+	TotalVol     int64   `json:"TotalVol"`
+	TotalVal     float64 `json:"TotalVal"`
+	MarketCap    float64 `json:"MarketCap"`
 	StockNameEn  string  `json:"StockNameEn"`
 	ROW          int     `json:"ROW"`
 	StockID      int     `json:"StockID"`
@@ -113,19 +116,55 @@ func main() {
 			}
 
 			for key, re := range result {
-				if key == 0 {
+				switch key {
+				// last day type
+				case 0:
 					switch reflect.TypeOf(re).Kind() {
 					case reflect.Slice:
-						tmp := reflect.ValueOf(re)
-						for i := 0; i < tmp.Len(); i++ {
-							fmt.Println(tmp.Index(i))
+						tmp_slice := reflect.ValueOf(re)
+						for i := 0; i < tmp_slice.Len(); i++ {
+							lastDayInterface := tmp_slice.Index(i).Interface().(map[string]interface{})
+							lastDay := LastDay{}
+							lastDay.Change = lastDayInterface["Change"].(float64)
+							lastDay.PerChange = lastDayInterface["PerChange"].(float64)
+							lastDay.ChangeColor = lastDayInterface["ChangeColor"].(string)
+							lastDay.ChangeText = lastDayInterface["ChangeText"].(string)
+							matchDate := regexp.MustCompile(DateRegexp)
+							if matchDate.MatchString(lastDayInterface["TrDate"].(string)) {
+								match, _ := strconv.ParseInt(matchDate.FindString(lastDayInterface["TrDate"].(string)), 10, 64)
+								lastDay.TrDate = match
+							}
+							lastDay.TranNo = lastDayInterface["TranNo"].(float64)
+							lastDay.CloseIndex = lastDayInterface["CloseIndex"].(float64)
+							lastDay.PriorIndex = lastDayInterface["PriorIndex"].(float64)
+							fmt.Println(lastDay)
 						}
 					}
-
+				// Price day
+				case 1:
+					switch reflect.TypeOf(re).Kind() {
+					case reflect.Slice:
+						tmp_slice := reflect.ValueOf(re)
+						for i := 0; i < tmp_slice.Len(); i++ {
+							priceDayInterface := tmp_slice.Index(i).Interface().(map[string]interface{})
+							priceDay := PriceDay{}
+							lastDay.Change = lastDayInterface["Change"].(float64)
+							lastDay.PerChange = lastDayInterface["PerChange"].(float64)
+							lastDay.ChangeColor = lastDayInterface["ChangeColor"].(string)
+							lastDay.ChangeText = lastDayInterface["ChangeText"].(string)
+							matchDate := regexp.MustCompile(DateRegexp)
+							if matchDate.MatchString(lastDayInterface["TrDate"].(string)) {
+								match, _ := strconv.ParseInt(matchDate.FindString(lastDayInterface["TrDate"].(string)), 10, 64)
+								lastDay.TrDate = match
+							}
+							lastDay.TranNo = lastDayInterface["TranNo"].(float64)
+							lastDay.CloseIndex = lastDayInterface["CloseIndex"].(float64)
+							lastDay.PriorIndex = lastDayInterface["PriorIndex"].(float64)
+							fmt.Println(lastDay)
+						}
+					}
 				}
 			}
-
-			// fmt.Printf("\n%s", string(body))
 			return
 		}
 	}
