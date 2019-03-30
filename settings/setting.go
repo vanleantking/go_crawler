@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -184,6 +185,32 @@ func newResponse(r *http.Response) *Response {
 	return response
 }
 
+func (client *Client) InitCustomRequest(url string, cHeader map[string]string) (*http.Response, error) {
+
+	cHeader["User-Agent"] = UserAgents[rand.Intn(len(UserAgents))]
+	if cHeader["Method"] == "" {
+		cHeader["Method"] = "GET"
+	}
+	cr_request, er := client.NewRequest(cHeader["Method"], url, nil)
+
+	if er != nil {
+		return &http.Response{}, er
+	}
+	cr_request.SetCustomeHeader(cHeader)
+
+	return client.Do(cr_request.Request, nil)
+}
+
+// header custome format is map[string]string
+func (crRequest *CrRequest) SetCustomeHeader(header map[string]string) {
+	for key, value := range header {
+		if strings.TrimSpace(key) != "" {
+			crRequest.Request.Header.Add(key, value)
+		}
+	}
+}
+
+// setting client with cookie jar
 func NewClient() *Client {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	httpClient := http.Client{Timeout: HttpTimeout, Transport: nil, CheckRedirect: nil, Jar: jar}

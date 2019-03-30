@@ -1,5 +1,6 @@
 package crawler
 
+// implement crawler web data from existing config
 import (
 	"errors"
 	"fmt"
@@ -181,7 +182,7 @@ func (crw *Crawler) GetDescription(doc *goquery.Document) {
 func (crw *Crawler) FetchURL() {
 	for _, config := range ConfigWeb {
 		// for i := 0; i < 2; i++ {
-		crawl_url := config.URL// + config.PaginateRegex + strconv.Itoa(i)
+		crawl_url := config.Url // + config.PaginateRegex + strconv.Itoa(i)
 		var res *http.Response
 		var err error
 
