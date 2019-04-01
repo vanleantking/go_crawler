@@ -22,7 +22,7 @@ type DBInfo struct {
 	Password string
 }
 
-var DBCONFIG = map[string]DBInfo{
+var MongoDBInfo = map[string]DBInfo{
 	"data_only": DBInfo{
 		Address:  ADDRESS,
 		Port:     PORT2,
@@ -53,10 +53,14 @@ var DBCONFIG = map[string]DBInfo{
 		Database: DATABASE1,
 		Username: USERNAME1,
 		Password: PASSWORD1},
-}
+	"localhost": DBInfo{
+		Address:  ADDLOCALHOST,
+		Port:     PORTLOCAL,
+		Database: DBCK,
+		Username: "",
+		Password: ""}}
 
-func ConnectMongoDB(database string) (error, *ClientMGO) {
-	dbInfo := DBCONFIG[database]
+func ConnectMongoDB(dbInfo DBInfo) (error, *ClientMGO) {
 	link := "mongodb://" + dbInfo.Username + ":" + dbInfo.Password + "@" + dbInfo.Address + ":" + dbInfo.Port + "/" + dbInfo.Database
 	mgoclient := &ClientMGO{}
 
@@ -73,10 +77,8 @@ func ConnectMongoDB(database string) (error, *ClientMGO) {
 	return nil, mgoclient
 }
 
-func ConnectMGOLocalDB() (error, *ClientMGO) {
-	databasename := "dmp_cookies_ony_v2"
-	port := "27017"
-	link := "mongodb://" + LOCALHOST + ":" + port + "/" + databasename
+func ConnectMGOLocalDB(dbInfo DBInfo) (error, *ClientMGO) {
+	link := "mongodb://" + dbInfo.Address + ":" + dbInfo.Port + "/" + dbInfo.Database
 	mgoclient := &ClientMGO{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
