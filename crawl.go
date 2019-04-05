@@ -24,48 +24,45 @@ import (
 var (
 	currentDate  = time.Now()
 	toDate       = fmt.Sprintf("%d-%d-%d", currentDate.Year(), currentDate.Month(), currentDate.Day())
-	fromDate     = "2019-01-01"
+	fromDate     = "2001-01-01"
 	DateRegexp   = `\d{4,}`
 	local_client *utils.ClientMGO
 
-	// Stock = map[string][]StockInfo{
-	// 	"HOSE": []StockInfo{
-	// 		StockInfo{CatID: 1, StockID: 497, MaxPage: 0, StockCode: "AAA"}}}
-	// ,
-	// StockInfo{CatID: 1, StockID: -19, MaxPage: 0, StockCode: "VN-Index"}}}
 	Stock = map[string][]StockInfo{
+		"HOSE": []StockInfo{
+			StockInfo{CatID: 1, StockID: 497, MaxPage: 0, StockCode: "AAA", ExChangeCode: 1, ExChangeName: "HOSE"},
+			StockInfo{CatID: 1, StockID: -19, MaxPage: 0, StockCode: "VN-Index", ExChangeCode: 1, ExChangeName: "HOSE"}},
 		"VN30": []StockInfo{
-			StockInfo{CatID: 4, StockID: -16, MaxPage: 0, StockCode: "VN30-Index"}}}
+			StockInfo{CatID: 4, StockID: -16, MaxPage: 0, StockCode: "VN30-Index", ExChangeCode: 4, ExChangeName: "VN30"}}}
 )
 
 //StockInfo{CatStock: 1, StockID: 497, StockCode: "AAA", StockName: "CTCP Nhựa và Môi trường Xanh An Phát"},
 //StockInfo{CatStock: 1, StockID: -19, StockCode: "VN-Index", StockName: "CTCP Nhựa và Môi trường Xanh An Phát"}
 
 type StockInfo struct {
-	CatID     int
-	StockID   int
-	MaxPage   int
-	StockCode string
+	CatID        int
+	StockID      int
+	MaxPage      int
+	StockCode    string
+	ExChangeCode int
+	ExChangeName string
 }
 
 type LastDay struct {
-	CloseIndex  float64 `json:"CloseIndex" bson:"CloseIndex"`
-	PriorIndex  float64 `json:"PriorIndex" bson:"PriorIndex"`
-	Change      float64 `json:"Change" bson:"Change"`
-	PerChange   float64 `json:"PerChange" bson:"PerChange"`
-	ChangeColor string  `json:"ChangeColor" bson:"ChangeColor"`
-	ChangeText  string  `json:"ChangeText" bson:"ChangeText"`
-	TrDate      int64   `json:"TrDate" bson:"TrDate"`
-	TranNo      float64 `json:"TranNo" bson:"TranNo"`
-	StockCode   string  `json:"StockCode" bson:"StockCode"`
-	TrDateStr   string  `json:"TrDateStr" bson:"TrDateStr"`
+	CloseIndex float64 `json:"CloseIndex" bson:"CloseIndex"`
+	PriorIndex float64 `json:"PriorIndex" bson:"PriorIndex"`
+	Change     float64 `json:"Change" bson:"Change"`
+	PerChange  float64 `json:"PerChange" bson:"PerChange"`
+	ChangeText string  `json:"ChangeText" bson:"ChangeText"`
+	TrDate     int64   `json:"TrDate" bson:"TrDate"`
+	TranNo     float64 `json:"TranNo" bson:"TranNo"`
+	StockCode  string  `json:"StockCode" bson:"StockCode"`
+	TrDateStr  string  `json:"TrDateStr" bson:"TrDateStr"`
 }
 
 type PriceDay struct {
 	TradingDate  int64   `json:"TradingDate" bson:"TradingDate"`
 	StockCode    string  `json:"StockCode" bson:"StockCode"`
-	FinanceURL   string  `json:"FinanceURL" bson:"FinanceURL"`
-	StockName    string  `json:"StockName" bson:"StockName"`
 	BasicPrice   float64 `json:"BasicPrice" bson:"BasicPrice"`
 	OpenPrice    float64 `json:"OpenPrice" bson:"OpenPrice"`
 	ClosePrice   float64 `json:"ClosePrice" bson:"ClosePrice"`
@@ -74,8 +71,7 @@ type PriceDay struct {
 	AvrPrice     float64 `json:"AvrPrice" bson:"AvrPrice"`
 	Change       float64 `json:"Change" bson:"Change"`
 	PerChange    float64 `json:"PerChange" bson:"PerChange"`
-	ChangeColor  string  `json:"ChangeColor" bson:"ChangeColor"`
-	ChangeImage  string  `json:"ChangeImage" bson:"ChangeImage"`
+	ChangeText   string  `json:"ChangeText" bson:"ChangeText"`
 	M_TotalVol   float64 `json:"M_TotalVol" bson:"M_TotalVol"`
 	M_TotalVal   float64 `json:"M_TotalVal" bson:"M_TotalVal"`
 	PT_TotalVol  float64 `json:"PT_TotalVol" bson:"PT_TotalVol"`
@@ -83,11 +79,11 @@ type PriceDay struct {
 	TotalVol     float64 `json:"TotalVol" bson:"TotalVol"`
 	TotalVal     float64 `json:"TotalVal" bson:"TotalVal"`
 	MarketCap    float64 `json:"MarketCap" bson:"MarketCap"`
-	StockNameEn  string  `json:"StockNameEn" bson:"StockNameEn"`
-	ROW          float64 `json:"ROW" bson:"ROW"`
 	StockID      float64 `json:"StockID" bson:"StockID"`
 	TrID         float64 `json:"TrID" bson:"TrID"`
 	TrDateStr    string  `json:"TrDateStr" bson:"TrDateStr"`
+	ExchangeCode int     `json:"ExchangeCode" bson:"ExchangeCode"`
+	ExchangeName string  `json:"ExchangeName" bson:"ExchangeName"`
 }
 
 func main() {
@@ -122,7 +118,6 @@ func main() {
 	crClient := settings.NewClient()
 
 	header := map[string]string{
-		"Referrer":                  "https://finance.vietstock.vn/ket-qua-giao-dich?tab=thong-ke-gia&exchange=1&code=-16",
 		"Accept":                    "*/*",
 		"AcceptLanguage":            "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
 		"X-Requested-With":          "XMLHttpRequest",
@@ -137,10 +132,16 @@ func main() {
 			startPage := 1
 			maxPage := 1000
 			for startPage <= maxPage {
+				time.Sleep(utils.RandInRange())
 				parameters := fmt.Sprintf(utils.STOCK_PARAMETER,
 					startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
 				log_url := strings.TrimSpace(utils.VIETSTOCK_BASEURL + parameters)
 				fmt.Println(log_url)
+
+				// setting referer link for each stock
+				refererLink := fmt.Sprintf(utils.STOCK_REFERER, stockInfo.ExChangeCode, stockInfo.StockCode)
+				header["Referrer"] = refererLink
+
 				resp, err := crClient.InitCustomRequest(log_url, header)
 				if err != nil {
 					fmt.Println(err.Error())
@@ -187,14 +188,13 @@ func main() {
 										lastDay.TrDate = trDate // time in nano-second
 										lastDay.Change = lastDayInterface["Change"].(float64)
 										lastDay.PerChange = lastDayInterface["PerChange"].(float64)
-										lastDay.ChangeColor = lastDayInterface["ChangeColor"].(string)
-										lastDay.ChangeText = lastDayInterface["ChangeText"].(string)
+										lastDay.ChangeText = lastDayInterface["ChangeColor"].(string)
 										lastDay.TranNo = lastDayInterface["TranNo"].(float64)
 										lastDay.CloseIndex = lastDayInterface["CloseIndex"].(float64)
 										lastDay.PriorIndex = lastDayInterface["PriorIndex"].(float64)
 										lastDay.StockCode = stockInfo.StockCode
 										trStr := time.Unix(int64(trDate/1000), 0)
-										lastDay.TrDateStr = trStr.Add(7 * time.Hour).Format("2006-01-02 15:04:05")
+										lastDay.TrDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
 										ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 										_, er = lastday_collection.InsertOne(ctx, &lastDay)
 										if er != nil {
@@ -232,8 +232,6 @@ func main() {
 										priceDay := PriceDay{}
 										priceDay.TradingDate = trDate // time in nano-second
 										priceDay.StockCode = priceDayInterface["StockCode"].(string)
-										priceDay.FinanceURL = priceDayInterface["FinanceURL"].(string)
-										priceDay.StockName = priceDayInterface["StockName"].(string)
 										priceDay.BasicPrice = priceDayInterface["BasicPrice"].(float64)
 										priceDay.OpenPrice = priceDayInterface["OpenPrice"].(float64)
 										priceDay.ClosePrice = priceDayInterface["ClosePrice"].(float64)
@@ -242,8 +240,7 @@ func main() {
 										priceDay.AvrPrice = priceDayInterface["AvrPrice"].(float64)
 										priceDay.Change = priceDayInterface["Change"].(float64)
 										priceDay.PerChange = priceDayInterface["PerChange"].(float64)
-										priceDay.ChangeColor = priceDayInterface["ChangeColor"].(string)
-										priceDay.ChangeImage = priceDayInterface["ChangeImage"].(string)
+										priceDay.ChangeText = priceDayInterface["ChangeColor"].(string)
 										priceDay.M_TotalVol = priceDayInterface["M_TotalVol"].(float64)
 										priceDay.M_TotalVal = priceDayInterface["M_TotalVal"].(float64)
 										priceDay.PT_TotalVol = priceDayInterface["PT_TotalVol"].(float64)
@@ -251,12 +248,12 @@ func main() {
 										priceDay.TotalVol = priceDayInterface["TotalVol"].(float64)
 										priceDay.TotalVal = priceDayInterface["TotalVal"].(float64)
 										priceDay.MarketCap = priceDayInterface["MarketCap"].(float64)
-										priceDay.StockNameEn = priceDayInterface["StockNameEn"].(string)
-										priceDay.ROW = priceDayInterface["ROW"].(float64)
 										priceDay.StockID = priceDayInterface["StockID"].(float64)
 										priceDay.TrID = priceDayInterface["TrID"].(float64)
+										priceDay.ExchangeCode = stockInfo.ExChangeCode
+										priceDay.ExchangeName = stockInfo.ExChangeName
 										trStr := time.Unix(int64(trDate/1000), 0)
-										priceDay.TrDateStr = trStr.Add(7 * time.Hour).Format("2006-01-02 15:04:05")
+										priceDay.TrDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
 										fmt.Println("price day, ", priceDay)
 										ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 										_, er = priceday_collection.InsertOne(ctx, &priceDay)
