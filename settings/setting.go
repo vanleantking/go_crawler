@@ -117,7 +117,7 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	// retrieve another proxy 3 time request when failed
 	flag := 0
 	re_error := errors.New("")
-	for flag < 10 {
+	for flag < 30 {
 		resp, err := c.client.Do(req)
 		if err != nil {
 			flag++

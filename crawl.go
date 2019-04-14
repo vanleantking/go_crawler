@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
+
 	reader "./read_files/structs"
 
 	"gopkg.in/mgo.v2/bson"
@@ -37,8 +39,8 @@ var (
 	local_client *utils.ClientMGO
 	DataTabs     = []string{
 		"KQGDThongKeGiaStockPaging",
-		"KQGDThongKeDatLenhStockPaging",
-		"KQGDGiaoDichNDTNNStockPaging"}
+		"KQGDGiaoDichNDTNNStockPaging",
+		"KQGDThongKeDatLenhStockPaging"}
 	RefererTabs = []string{
 		"thong-ke-gia",
 		"thong-ke-lenh",
@@ -86,9 +88,9 @@ func main() {
 	// lastday_collection := local_client.Client.Database("new_ck").Collection("last_day")
 
 	//STOCK_PARAMETER {page, pageSize, catID, stockID, fromDate, toDate}
-	go getPriceDayInfo(&wg)
-	// go getOrderMatchInfo(index, crClient, &wg)
-	// go getOrderReservationInfo(index, crClient, &wg)
+	getPriceDayInfo(&wg)
+	getOrderMatchInfo(&wg)
+	getOrderReservationInfo(&wg)
 	wg.Wait()
 	log.Println("Success")
 }
@@ -108,130 +110,125 @@ func getPriceDayInfo(wg *sync.WaitGroup) {
 			"Method":                    "GET",
 			"Upgrade-Insecure-Requests": "1"}
 
-		for key := 0; key < len(DataTabs); key++ {
-			for _, stockInfos := range Stocks {
-				for _, stockInfo := range stockInfos {
+		for _, stockInfos := range Stocks {
+			for _, stockInfo := range stockInfos {
 
-					startPage := 1
-					maxPage := 1000
-					for startPage <= maxPage {
-						time.Sleep(utils.RandInRange())
-						log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
-							DataTabs[key], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
-						fmt.Println("log urllllllllllllllll", log_url, len(stockInfos))
+				startPage := 1
+				maxPage := 1000
+				for startPage <= maxPage {
+					time.Sleep(utils.RangeWideTimeOut())
+					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
+						DataTabs[0], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
 
-						// setting referer link for each stock
-						refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[key], stockInfo.ExchangeCode, stockInfo.StockID)
-						header["Referrer"] = refererLink
-						fmt.Println("at here", log_url, len(stockInfos), header)
+					// setting referer link for each stock
+					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[0], stockInfo.ExchangeCode, stockInfo.StockID)
+					header["Referrer"] = refererLink
 
-						resp, err := crClient.InitCustomRequest(log_url, header)
-						fmt.Println("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", resp, err)
-						if err != nil {
-							fmt.Println(err.Error())
-						}
-						defer resp.Body.Close()
-						body, err := ioutil.ReadAll(resp.Body)
-						fmt.Println("errrorrrrrrrrrrrr", string(body), err)
-						if err != nil {
-							fmt.Println(err.Error())
-						}
-						var result []interface{}
-						err = json.Unmarshal(body, &result)
-						if err != nil {
-							fmt.Println(err.Error())
-						}
+					resp, err := crClient.InitCustomRequest(log_url, header)
+					if err != nil {
+						fmt.Println(err.Error())
+					}
+					defer resp.Body.Close()
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						fmt.Println(err.Error())
+					}
+					var result []interface{}
+					err = json.Unmarshal(body, &result)
+					if err != nil {
+						fmt.Println(err.Error())
+					}
 
-						for key, re := range result {
-							switch key {
-							// Price day
-							case 1:
-								switch reflect.TypeOf(re).Kind() {
-								case reflect.Slice:
-									tmp_slice := reflect.ValueOf(re)
-									for i := 0; i < tmp_slice.Len(); i++ {
-										priceDayInterface := tmp_slice.Index(i).Interface().(map[string]interface{})
-										matchDate := regexp.MustCompile(DateRegexp)
-										trDate := int64(0)
-										if matchDate.MatchString(priceDayInterface["TradingDate"].(string)) {
-											match, _ := strconv.ParseInt(matchDate.FindString(priceDayInterface["TradingDate"].(string)), 10, 64)
-											trDate = match
-										}
-
-										ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-										count, er := priceday_collection.Count(
-											ctx,
-											bson.M{
-												"TradingDate": trDate,
-												"StockCode":   stockInfo.StockCode})
-										if er != nil {
-											log.Println("Error on count last_day, ", priceDayInterface)
-										} else {
-											// only insert if count == 0 else break <= save already
-											if count == int64(0) {
-												priceDay := utils.PriceDay{}
-												priceDay.TradingDate = trDate // time in nano-second
-												priceDay.StockCode = priceDayInterface["StockCode"].(string)
-												priceDay.BasicPrice = priceDayInterface["BasicPrice"].(float64)
-												priceDay.OpenPrice = priceDayInterface["OpenPrice"].(float64)
-												priceDay.ClosePrice = priceDayInterface["ClosePrice"].(float64)
-												priceDay.HighestPrice = priceDayInterface["HighestPrice"].(float64)
-												priceDay.LowestPrice = priceDayInterface["LowestPrice"].(float64)
-												priceDay.AvrPrice = priceDayInterface["AvrPrice"].(float64)
-												priceDay.Change = priceDayInterface["Change"].(float64)
-												priceDay.PerChange = priceDayInterface["PerChange"].(float64)
-												priceDay.ChangeText = priceDayInterface["ChangeColor"].(string)
-												priceDay.M_TotalVol = priceDayInterface["M_TotalVol"].(float64)
-												priceDay.M_TotalVal = priceDayInterface["M_TotalVal"].(float64)
-												priceDay.PT_TotalVol = priceDayInterface["PT_TotalVol"].(float64)
-												priceDay.PT_TotalVal = priceDayInterface["PT_TotalVal"].(float64)
-												priceDay.TotalVol = priceDayInterface["TotalVol"].(float64)
-												priceDay.TotalVal = priceDayInterface["TotalVal"].(float64)
-												priceDay.MarketCap = priceDayInterface["MarketCap"].(float64)
-												priceDay.StockID = stockInfo.StockID
-												priceDay.TrID = priceDayInterface["TrID"].(float64)
-												priceDay.ExchangeCode = stockInfo.ExchangeCode
-												priceDay.ExchangeName = stockInfo.ExchangeName
-												trStr := time.Unix(int64(trDate/1000), 0)
-												priceDay.TrDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
-												fmt.Println("price day, ", priceDay)
-												ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
-												_, er = priceday_collection.InsertOne(ctx, &priceDay)
-												if er != nil {
-													log.Println("Error on insert last_day, ", priceDayInterface)
-												}
-											} else {
-												break
-											}
-										}
+					for key, re := range result {
+						switch key {
+						// Price day
+						case 1:
+							switch reflect.TypeOf(re).Kind() {
+							case reflect.Slice:
+								tmp_slice := reflect.ValueOf(re)
+								for i := 0; i < tmp_slice.Len(); i++ {
+									priceDayInterface := tmp_slice.Index(i).Interface().(map[string]interface{})
+									matchDate := regexp.MustCompile(DateRegexp)
+									trDate := int64(0)
+									if matchDate.MatchString(priceDayInterface["TradingDate"].(string)) {
+										match, _ := strconv.ParseInt(matchDate.FindString(priceDayInterface["TradingDate"].(string)), 10, 64)
+										trDate = match
 									}
-								}
-							// get max page pagination
-							case 2:
-								switch reflect.TypeOf(re).Kind() {
-								case reflect.Slice:
-									tmp_slice := reflect.ValueOf(re)
-									for i := 0; i < tmp_slice.Len(); i++ {
-										priceDayInterface := tmp_slice.Index(i).Interface().(float64)
-										maxPage = int(priceDayInterface)
-										break
+
+									ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+									count, er := priceday_collection.Count(
+										ctx,
+										bson.M{
+											"TradingDate": trDate,
+											"StockCode":   stockInfo.StockCode})
+									if er != nil {
+										log.Println("Error on count last_day, ", priceDayInterface)
+									} else {
+										// only insert if count == 0 else break <= save already
+										if count == int64(0) {
+											priceDay := utils.PriceDay{}
+											priceDay.Id = primitive.NewObjectID()
+											priceDay.TradingDate = trDate // time in nano-second
+											priceDay.StockCode = priceDayInterface["StockCode"].(string)
+											priceDay.BasicPrice = priceDayInterface["BasicPrice"].(float64)
+											priceDay.OpenPrice = priceDayInterface["OpenPrice"].(float64)
+											priceDay.ClosePrice = priceDayInterface["ClosePrice"].(float64)
+											priceDay.HighestPrice = priceDayInterface["HighestPrice"].(float64)
+											priceDay.LowestPrice = priceDayInterface["LowestPrice"].(float64)
+											priceDay.AvrPrice = priceDayInterface["AvrPrice"].(float64)
+											priceDay.Change = priceDayInterface["Change"].(float64)
+											priceDay.PerChange = priceDayInterface["PerChange"].(float64)
+											priceDay.ChangeText = priceDayInterface["ChangeColor"].(string)
+											priceDay.M_TotalVol = priceDayInterface["M_TotalVol"].(float64)
+											priceDay.M_TotalVal = priceDayInterface["M_TotalVal"].(float64)
+											priceDay.PT_TotalVol = priceDayInterface["PT_TotalVol"].(float64)
+											priceDay.PT_TotalVal = priceDayInterface["PT_TotalVal"].(float64)
+											priceDay.TotalVol = priceDayInterface["TotalVol"].(float64)
+											priceDay.TotalVal = priceDayInterface["TotalVal"].(float64)
+											priceDay.MarketCap = priceDayInterface["MarketCap"].(float64)
+											priceDay.StockID = stockInfo.StockID
+											priceDay.TrID = priceDayInterface["TrID"].(float64)
+											priceDay.ExchangeCode = stockInfo.ExchangeCode
+											priceDay.ExchangeName = stockInfo.ExchangeName
+											trStr := time.Unix(int64(trDate/1000), 0)
+											priceDay.TrDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
+											fmt.Println("price day, ", priceDay)
+											ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
+											_, er = priceday_collection.InsertOne(ctx, &priceDay)
+											if er != nil {
+												log.Println("Error on insert last_day, ", er, priceDayInterface)
+											}
+										} else {
+											break
+										}
 									}
 								}
 							}
+						// get max page pagination
+						case 2:
+							switch reflect.TypeOf(re).Kind() {
+							case reflect.Slice:
+								tmp_slice := reflect.ValueOf(re)
+								for i := 0; i < tmp_slice.Len(); i++ {
+									priceDayInterface := tmp_slice.Index(i).Interface().(float64)
+									maxPage = int(priceDayInterface)
+									break
+								}
+							}
 						}
-						startPage++
 					}
+					startPage++
 				}
 			}
 		}
-		defer wg.Done()
 	}()
 }
 
-func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
+func getOrderMatchInfo(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
 		matchorder_collection := local_client.Client.Database("new_ck").Collection("match_order")
 		header := map[string]string{
 			"Accept":                    "*/*",
@@ -240,20 +237,20 @@ func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
 			"Pragma":                    "no-cache",
 			"Method":                    "GET",
 			"Upgrade-Insecure-Requests": "1"}
-
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
-
+				// initial client custom request
+				crClient := settings.NewClient()
 				startPage := 1
 				maxPage := 1000
 				for startPage <= maxPage {
-					time.Sleep(utils.RandInRange())
+					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
-						DataTabs[key], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
+						DataTabs[1], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
 					fmt.Println(log_url)
 
 					// setting referer link for each stock
-					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[key], stockInfo.ExchangeCode, stockInfo.StockCode)
+					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[1], stockInfo.ExchangeCode, stockInfo.StockCode)
 					header["Referrer"] = refererLink
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
@@ -301,14 +298,15 @@ func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
 										// only insert if count == 0 else break <= save already
 										if count == int64(0) {
 											matchOrder := utils.MatchOrder{}
+											matchOrder.Id = primitive.NewObjectID()
 											matchOrder.TradingDate = trDate // time in nano-second
 											matchOrder.StockCode = stockInfo.StockCode
 											matchOrder.StockID = stockInfo.StockID
-											matchOrder.TrID = orderMatchInterface["TrID"].(float64)
-											matchOrder.TotalVol = orderMatchInterface["TotalVol"].(float64)
-											matchOrder.TotalVal = orderMatchInterface["TotalVal"].(float64)
 											matchOrder.TotalRoom = orderMatchInterface["TotalRoom"].(float64)
 											matchOrder.CurrRoom = orderMatchInterface["CurrRoom"].(float64)
+											matchOrder.RemainRoom = orderMatchInterface["RemainRoom"].(float64)
+											matchOrder.OwnedRatio = orderMatchInterface["OwnedRatio"].(float64)
+											matchOrder.DiffBuySellPutVol = orderMatchInterface["DiffBuySellPutVol"].(float64)
 											matchOrder.BuyVol = orderMatchInterface["BuyVol"].(float64)
 											matchOrder.PerBuyVol = orderMatchInterface["PerBuyVol"].(float64)
 											matchOrder.BuyVal = orderMatchInterface["BuyVal"].(float64)
@@ -317,6 +315,7 @@ func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
 											matchOrder.PerSellVol = orderMatchInterface["PerSellVol"].(float64)
 											matchOrder.SellVal = orderMatchInterface["SellVal"].(float64)
 											matchOrder.PerSellVal = orderMatchInterface["PerSellVal"].(float64)
+											matchOrder.DiffBuySellPutVal = orderMatchInterface["DiffBuySellPutVal"].(float64)
 											matchOrder.DiffBuySellVol = orderMatchInterface["DiffBuySellVol"].(float64)
 											matchOrder.DiffBuySellVal = orderMatchInterface["DiffBuySellVal"].(float64)
 											matchOrder.BuyPutVol = orderMatchInterface["BuyPutVol"].(float64)
@@ -335,7 +334,7 @@ func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
 											ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 											_, er = matchorder_collection.InsertOne(ctx, &matchOrder)
 											if er != nil {
-												log.Println("Error on insert order_match, ", orderMatchInterface)
+												log.Println("Error on insert order_match, ", er, orderMatchInterface)
 											}
 										} else {
 											break
@@ -363,7 +362,7 @@ func getOrderMatchInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
 	}()
 }
 
-func getOrderReservationInfo(key int, crClient *settings.Client, wg *sync.WaitGroup) {
+func getOrderReservationInfo(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -375,21 +374,20 @@ func getOrderReservationInfo(key int, crClient *settings.Client, wg *sync.WaitGr
 			"Pragma":                    "no-cache",
 			"Method":                    "GET",
 			"Upgrade-Insecure-Requests": "1"}
-
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
-
+				// initial client custom request
+				crClient := settings.NewClient()
 				startPage := 1
 				maxPage := 1000
 				for startPage <= maxPage {
-					fmt.Println("start page, ", startPage, maxPage, len(stockInfos))
-					time.Sleep(utils.RandInRange())
+					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
-						DataTabs[key], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
+						DataTabs[2], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
 					fmt.Println("log url, ", log_url)
 
 					// setting referer link for each stock
-					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[key], stockInfo.ExchangeCode, stockInfo.StockCode)
+					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[2], stockInfo.ExchangeCode, stockInfo.StockCode)
 					header["Referrer"] = refererLink
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
@@ -406,7 +404,6 @@ func getOrderReservationInfo(key int, crClient *settings.Client, wg *sync.WaitGr
 					if err != nil {
 						fmt.Println(err.Error())
 					}
-					fmt.Println("resultttttttttttttttttttt", result)
 
 					for key, re := range result {
 						switch key {
@@ -436,29 +433,31 @@ func getOrderReservationInfo(key int, crClient *settings.Client, wg *sync.WaitGr
 										// only insert if count == 0 else break <= save already
 										if count == int64(0) {
 											reserverOrder := utils.ReserveOrder{}
+											reserverOrder.Id = primitive.NewObjectID()
 											reserverOrder.TradingDate = trDate // time in nano-second
 											reserverOrder.StockCode = stockInfo.StockCode
 											reserverOrder.StockID = stockInfo.StockID
-											reserverOrder.OutstandingBuy = orderReserveInterface["OutstandingBuy"].(float64)
-											reserverOrder.OutstandingSell = orderReserveInterface["OutstandingSell"].(float64)
-											reserverOrder.TotalBuyTrade = orderReserveInterface["TotalBuyTrade"].(float64)
-											reserverOrder.TotalBuyVol = orderReserveInterface["TotalBuyVol"].(float64)
-											reserverOrder.TotalSellTrade = orderReserveInterface["TotalSellTrade"].(float64)
-											reserverOrder.TotalSellVol = orderReserveInterface["TotalSellVol"].(float64)
-											reserverOrder.TrID = orderReserveInterface["TrID"].(float64)
-											reserverOrder.DisparityTrade = orderReserveInterface["DisparityTrade"].(float64)
-											reserverOrder.DisparityVol = orderReserveInterface["DisparityVol"].(float64)
-											reserverOrder.AVGVolBuy = orderReserveInterface["AVGVolBuy"].(float64)
-											reserverOrder.AVGVolSell = orderReserveInterface["AVGVolSell"].(float64)
 											reserverOrder.ExchangeCode = stockInfo.ExchangeCode
 											reserverOrder.ExchangeName = stockInfo.ExchangeName
+											reserverOrder.ClosePrice = orderReserveInterface["ClosePrice"].(float64)
+											reserverOrder.TotalVol = orderReserveInterface["TotalVol"].(float64)
+											reserverOrder.TotalVal = orderReserveInterface["TotalVal"].(float64)
+											reserverOrder.BestBuy = orderReserveInterface["BestBuy"].(float64)
+											reserverOrder.BestBidVol = orderReserveInterface["BestBidVol"].(float64)
+											reserverOrder.BestSell = orderReserveInterface["BestSell"].(float64)
+											reserverOrder.BestSellVol = orderReserveInterface["BestSellVol"].(float64)
+											reserverOrder.TotalBuyTrade = orderReserveInterface["TotalBuyTrade"].(float64)
+											reserverOrder.TotalSellTrade = orderReserveInterface["TotalSellTrade"].(float64)
+											reserverOrder.SpreadBSTrade = orderReserveInterface["SpreadBSTrade"].(float64)
+											reserverOrder.TotalBuyVol = orderReserveInterface["TotalBuyVol"].(float64)
+											reserverOrder.TotalSellVol = orderReserveInterface["TotalSellVol"].(float64)
+											reserverOrder.SpreadBSVol = orderReserveInterface["SpreadBSVol"].(float64)
 											trStr := time.Unix(int64(trDate/1000), 0)
 											reserverOrder.TradingDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
-											fmt.Println("price day, ", reserverOrder)
 											ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 											_, er = reservationorder_collection.InsertOne(ctx, &reserverOrder)
 											if er != nil {
-												log.Println("Error on insert order_match, ", orderReserveInterface)
+												log.Println("Error on insert order_match, ", er, orderReserveInterface)
 											}
 										} else {
 											break
