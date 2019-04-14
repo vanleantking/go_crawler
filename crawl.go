@@ -192,7 +192,6 @@ func getPriceDayInfo(wg *sync.WaitGroup) {
 											priceDay.ExchangeName = stockInfo.ExchangeName
 											trStr := time.Unix(int64(trDate/1000), 0)
 											priceDay.TrDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
-											fmt.Println("price day, ", priceDay)
 											ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 											_, er = priceday_collection.InsertOne(ctx, &priceDay)
 											if er != nil {
@@ -247,7 +246,6 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
 						DataTabs[1], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
-					fmt.Println(log_url)
 
 					// setting referer link for each stock
 					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[1], stockInfo.ExchangeCode, stockInfo.StockCode)
@@ -262,7 +260,6 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 					if err != nil {
 						fmt.Println(err.Error())
 					}
-					fmt.Println("boy dy string", string(body))
 					var result []interface{}
 					err = json.Unmarshal(body, &result)
 					if err != nil {
@@ -278,7 +275,6 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 								tmp_slice := reflect.ValueOf(re)
 								for i := 0; i < tmp_slice.Len(); i++ {
 									orderMatchInterface := tmp_slice.Index(i).Interface().(map[string]interface{})
-									fmt.Println("order match interface, ", orderMatchInterface)
 									matchDate := regexp.MustCompile(DateRegexp)
 									trDate := int64(0)
 									if matchDate.MatchString(orderMatchInterface["TradingDate"].(string)) {
@@ -330,7 +326,7 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 											matchOrder.ExchangeName = stockInfo.ExchangeName
 											trStr := time.Unix(int64(trDate/1000), 0)
 											matchOrder.TradingDateStr = strings.Split(trStr.Add(7*time.Hour).Format("2006-01-02 15:04:05"), " ")[0]
-											fmt.Println("match order, ", matchOrder)
+
 											ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 											_, er = matchorder_collection.InsertOne(ctx, &matchOrder)
 											if er != nil {
@@ -384,7 +380,6 @@ func getOrderReservationInfo(wg *sync.WaitGroup) {
 					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
 						DataTabs[2], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
-					fmt.Println("log url, ", log_url)
 
 					// setting referer link for each stock
 					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[2], stockInfo.ExchangeCode, stockInfo.StockCode)
