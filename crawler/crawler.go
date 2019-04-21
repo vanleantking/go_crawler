@@ -50,7 +50,8 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 
 	// client initial request on original url
 	if crw.WS.SpecialHeader {
-		res, err = crw.Client.InitRequest2(log_url, crw.WS.Hostname)
+		referer, _ := getHostFromURL(log_url)
+		res, err = crw.Client.InitRequest2(log_url, referer)
 	} else {
 		res, err = crw.Client.InitRequest(log_url)
 	}
@@ -123,7 +124,7 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 
 			// Parse url failed
 		} else {
-			msg := "parse URL failed: " + crw.WS.URL
+			msg := "parse URL failed: " + crw.WS.Url
 			return errors.New(msg)
 		}
 	}
@@ -188,7 +189,8 @@ func (crw *Crawler) FetchURL() {
 
 		// client initial request on original url
 		if config.SpecialHeader {
-			res, err = crw.Client.InitRequest2(crawl_url, config.Hostname)
+			referer, _ := getHostFromURL(crawl_url)
+			res, err = crw.Client.InitRequest2(crawl_url, referer)
 		} else {
 			res, err = crw.Client.InitRequest(crawl_url)
 		}
@@ -213,4 +215,13 @@ func (crw *Crawler) FetchURL() {
 		fmt.Println(links)
 		// }
 	}
+}
+
+func getHostFromURL(url_str string) (string, error) {
+	// Parse the URL and ensure there are no errors.
+	u, err := url.Parse(url_str)
+	if err != nil {
+		return "", err
+	}
+	return u.Scheme + "://" + u.Host, nil
 }
