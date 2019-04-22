@@ -180,41 +180,55 @@ func (crw *Crawler) GetDescription(doc *goquery.Document) {
 	crw.Result.description = crw.Result.GetMetaTag(crw.WS.Description, doc)
 }
 
+// request for auto get link from category or hompage on web config
 func (crw *Crawler) FetchURL() {
+	var results = []string{}
+	var links = []string{}
+	crawl_url := ""
 	for _, config := range ConfigWeb {
-		// for i := 0; i < 2; i++ {
-		crawl_url := config.Url // + config.PaginateRegex + strconv.Itoa(i)
-		var res *http.Response
-		var err error
-
-		// client initial request on original url
-		if config.SpecialHeader {
-			referer, _ := getHostFromURL(crawl_url)
-			res, err = crw.Client.InitRequest2(crawl_url, referer)
+		if config.PaginateRegex != "" {
+			for i := 1; i <= 10; i++ {
+				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+				links = crw.crawlSingleLink(crawl_url, &config)
+				results = append(results, links...)
+			}
 		} else {
-			res, err = crw.Client.InitRequest(crawl_url)
+			crawl_url = config.Url
+			links = crw.crawlSingleLink(crawl_url, &config)
+			results = append(results, links...)
 		}
-
-		if err != nil {
-			panic(err.Error())
-		}
-		defer res.Body.Close()
-
-		// Continue if Response code is success
-		if res.StatusCode != 200 {
-			msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
-			// return errors.New(msg)
-			panic(msg)
-		}
-		// Load the HTML document
-		doc, docer := goquery.NewDocumentFromReader(res.Body)
-		if docer != nil {
-			panic(docer.Error())
-		}
-		links := utils.GetCategoryLink(config.ListNews, config.TitleNews, doc)
-		fmt.Println(links)
-		// }
 	}
+	fmt.Println("Links crawlllllll, ", results)
+}
+
+func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteConfig) []string {
+	var res *http.Response
+	var err error
+
+	// client initial request on original url
+	if config.SpecialHeader {
+		referer, _ := getHostFromURL(crawl_link)
+		res, err = crw.Client.InitRequest2(crawl_link, referer)
+	} else {
+		res, err = crw.Client.InitRequest(crawl_link)
+	}
+
+	if err != nil {
+		panic(err.Error())
+	}
+	defer res.Body.Close()
+
+	// Continue if Response code is success
+	if res.StatusCode != 200 {
+		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode) + crawl_link
+		panic(msg)
+	}
+	// Load the HTML document
+	doc, docer := goquery.NewDocumentFromReader(res.Body)
+	if docer != nil {
+		panic(docer.Error())
+	}
+	return utils.GetCategoryLink(config.ListNews, config.TitleNews, doc)
 }
 
 func getHostFromURL(url_str string) (string, error) {
