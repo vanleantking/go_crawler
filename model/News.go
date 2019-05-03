@@ -5,8 +5,9 @@ import (
 )
 
 type News struct {
-	ID          primitive.ObjectID `json:"id" bson:"_id"`
+	Id          primitive.ObjectID `json:"id" bson:"_id"`
 	URL         string             `json:"url" bson:"url"`
+	Title       string             `json:"title" bson:"title"`
 	Category    string             `json:"category" bson:"category"` // ([cat1], [cat2])
 	Content     string             `json:"content" bson:"content"`
 	Description string             `json:"description" bson:"description"`
@@ -15,7 +16,9 @@ type News struct {
 	Meta        string             `json:"meta" bson:"meta"`
 	PublishDate string             `json:"publish_date" bson:"publish_date"`
 	Words       string             `json:"words" bson:"words"`
-	Status      bool               `json:"status" bson:"status"`
+	Status      int                `json:"status" bson:"status"`
 	CreatedInt  int64              `json:"created_int" bson:"created_int"`
 	UpdatedInt  int64              `json:"updated_int" bson:"updated_int"`
+	CreatedStr  string             `json:"created_str" bson:"created_str"`
+	UpdatedStr  string             `json:"updated_str" bson:"updated_str"`
 }

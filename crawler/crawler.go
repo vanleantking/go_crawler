@@ -3,7 +3,6 @@ package crawler
 // implement crawler web data from existing config
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -181,7 +180,7 @@ func (crw *Crawler) GetDescription(doc *goquery.Document) {
 }
 
 // request for auto get link from category or hompage on web config
-func (crw *Crawler) FetchURL() {
+func (crw *Crawler) FetchURL() []string {
 	var results = []string{}
 	var links = []string{}
 	crawl_url := ""
@@ -198,7 +197,7 @@ func (crw *Crawler) FetchURL() {
 			results = append(results, links...)
 		}
 	}
-	fmt.Println("Links crawlllllll, ", results)
+	return results
 }
 
 func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteConfig) []string {
@@ -206,8 +205,8 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteC
 	var err error
 
 	// client initial request on original url
+	referer, _ := getHostFromURL(crawl_link)
 	if config.SpecialHeader {
-		referer, _ := getHostFromURL(crawl_link)
 		res, err = crw.Client.InitRequest2(crawl_link, referer)
 	} else {
 		res, err = crw.Client.InitRequest(crawl_link)
@@ -228,7 +227,7 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteC
 	if docer != nil {
 		panic(docer.Error())
 	}
-	return utils.GetCategoryLink(config.ListNews, config.TitleNews, doc)
+	return utils.GetCategoryLink(config.ListNews, config.TitleNews, doc, referer)
 }
 
 func getHostFromURL(url_str string) (string, error) {
