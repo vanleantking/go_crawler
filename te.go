@@ -45,8 +45,8 @@ func main() {
 
 	crawler := &crawler.Crawler{}
 	crawler.NewClient()
-	fetchURL(crawler)
-	crawlULR(crawler)
+	// fetchURL(crawler)
+	crawlURL(crawler)
 	// log.Println("enter crawler")
 
 }
@@ -64,7 +64,8 @@ func fetchURL(crawler *crawler.Crawler) {
 			continue
 		}
 		if count == 0 {
-			new := model.News{URL: link, CreatedInt: time.Now().Unix(), Status: 1}
+			created_int := currentTimeUnix()
+			new := model.News{URL: link, CreatedInt: created_int.Unix(), CreatedStr: created_int.Format("2006-01-02 15:04:05"), Status: 1}
 			new.Id = primitive.NewObjectID()
 			ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 			_, er := new_collection.InsertOne(ctx, &new)
@@ -161,12 +162,38 @@ func crawlURL(crawler *crawler.Crawler) {
 					}
 				}
 
-				title, content, category_news, description, keyword, meta := crawler.Getresult()
-
+				result := crawler.Getresult()
+				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+				_, er = new_collection.UpdateOne(
+					ctx,
+					bson.M{"_id": news.Id},
+					bson.M{"$set": bson.M{
+						"title":         result.title,
+						"content":       result.content,
+						"category_news": result.category_news,
+						"description":   result.description,
+						"keyword":       result.keyword,
+						"meta":          result.meta,
+						"publish_date":  result.publish_date,
+						"status":        2,
+						"updated_int":   currentTimeUnix().Unix(),
+						"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})
+				if er != nil {
+					log.Println("Error on get content, ", news.Id, er.Error())
+					continue
+				}
 				log.Println("success")
 			}
 		}()
 	}
 	<-done
 
+}
+
+func currentTimeUnix() time.Time {
+	//init the loc
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+
+	//set timezone,
+	return time.Now().In(loc)
 }

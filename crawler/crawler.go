@@ -29,10 +29,17 @@ type Result struct {
 	keyword       []string
 	description   string
 	meta          map[string]string
+	publish_date  string
 }
 
-func (crw *Crawler) Getresult() (string, string, string, string, []string, map[string]string) {
-	return crw.title, crw.content, crw.category_news, crw.description, crw.keyword, crw.meta
+func (crw *Crawler) Getresult() *Result{
+	return &Result{title: crw.title,
+		content: crw.content,
+		category_news: crw.category_news,
+		description: crw.description,
+		keyword: crw.keyword,
+		meta: crw.meta,
+		publish_date: crw.publish_date}
 }
 
 func (crw *Crawler) NewClient() {
@@ -131,6 +138,9 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 	crw.GetKeywords(doc)
 	crw.GetDescription(doc)
 	crw.GetMetaTags(doc)
+	if crw.WS.PublishDate != "" {
+		crw.GetPublishDate(doc)
+	}
 	return nil
 }
 
@@ -153,6 +163,13 @@ func (result *Result) GetMetaTag(tag string, doc *goquery.Document) string {
 		}
 	})
 	return metaContent
+}
+
+func (crw *Crawler) GetPublishDate(doc *goquery.Document) string {
+
+	contentSelection := doc.Find(crw.WS.PublishDate)
+	crw.publish_date = contentSelection.Text()
+
 }
 
 func (crw *Crawler) GetMetaTags(doc *goquery.Document) {
