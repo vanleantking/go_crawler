@@ -42,18 +42,15 @@ func main() {
 	}
 	defer local_client.CancelFunc()
 	defer local_client.Client.Disconnect(local_client.Ctx)
-
-	crawler := &crawler.Crawler{}
-	crawler.NewClient()
 	// fetchURL(crawler)
-	crawlURL(crawler)
+	crawlURL()
 	// log.Println("enter crawler")
 
 }
 
-func fetchURL(crawler *crawler.Crawler) {
+func fetchURL(crwl *crawler.Crawler) {
 	new_collection := local_client.Client.Database("docbao").Collection("news")
-	links := crawler.FetchURL()
+	links := crwl.FetchURL()
 	for _, link := range links {
 		ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 		count, er := new_collection.Count(
@@ -77,8 +74,8 @@ func fetchURL(crawler *crawler.Crawler) {
 	}
 }
 
-func crawlURL(crawler *crawler.Crawler) {
-	default_condition := bson.M{"status": 1}
+func crawlURL() {
+	default_condition := bson.M{}
 	projection := bson.M{"_id": 1}
 	sortDesc := bson.M{"_id": 1}
 	new_collection := local_client.Client.Database("docbao").Collection("news")
@@ -98,6 +95,8 @@ func crawlURL(crawler *crawler.Crawler) {
 	newId := lastId
 	var cookies_chan = make(chan bson.M)
 	var done = make(chan bool)
+	crwl := &crawler.Crawler{}
+	crwl.NewClient()
 	// go-routine for send data cho channels
 	go func() {
 		for {
@@ -131,9 +130,14 @@ func crawlURL(crawler *crawler.Crawler) {
 	}()
 
 	// group of routine for get string content update on cookie_full_v2
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		go func() {
+			count := 1
 			for cookie_chan := range cookies_chan {
+				count++
+				if count%5 == 0 {
+					crwl.NewClient()
+				}
 				var err error
 				var news model.News
 				bsonBytes, err := bson.Marshal(cookie_chan)
@@ -147,7 +151,7 @@ func crawlURL(crawler *crawler.Crawler) {
 					log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
 					continue
 				}
-				er := crawler.CrawlerURL(news.URL)
+				er := crwl.CrawlerURL(news.URL)
 				if er != nil {
 					log.Println("Error, can not crawl content, ", news.Id, er.Error())
 					ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -160,29 +164,30 @@ func crawlURL(crawler *crawler.Crawler) {
 						log.Println("Error, can not update status news, ", news.Id, er.Error())
 						continue
 					}
-				}
-
-				result := crawler.Getresult()
-				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-				_, er = new_collection.UpdateOne(
-					ctx,
-					bson.M{"_id": news.Id},
-					bson.M{"$set": bson.M{
-						"title":         result.title,
-						"content":       result.content,
-						"category_news": result.category_news,
-						"description":   result.description,
-						"keyword":       result.keyword,
-						"meta":          result.meta,
-						"publish_date":  result.publish_date,
-						"status":        2,
-						"updated_int":   currentTimeUnix().Unix(),
-						"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})
-				if er != nil {
-					log.Println("Error on get content, ", news.Id, er.Error())
 					continue
+				} else {
+					result := crwl.Getresult()
+					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+					_, er = new_collection.UpdateOne(
+						ctx,
+						bson.M{"_id": news.Id},
+						bson.M{"$set": bson.M{
+							"title":         result.Title,
+							"content":       result.Content,
+							"category_news": result.CategoryNews,
+							"description":   result.Description,
+							"keyword":       result.Keyword,
+							"meta":          result.Meta,
+							"publish_date":  result.PublishDate,
+							"status":        2,
+							"updated_int":   currentTimeUnix().Unix(),
+							"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})
+					if er != nil {
+						log.Println("Error on get content, ", news.Id, er.Error())
+						continue
+					}
+					log.Println("success")
 				}
-				log.Println("success")
 			}
 		}()
 	}
