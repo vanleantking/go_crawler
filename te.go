@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -42,156 +43,177 @@ func main() {
 	}
 	defer local_client.CancelFunc()
 	defer local_client.Client.Disconnect(local_client.Ctx)
-	// fetchURL(crawler)
-	crawlURL()
-	// log.Println("enter crawler")
+	var wg sync.WaitGroup
+	fetchURL(&wg)
+	crawlURL(&wg)
+	wg.Wait()
+	log.Println("Success")
+	fmt.Println("Success")
 
 }
 
-func fetchURL(crwl *crawler.Crawler) {
-	new_collection := local_client.Client.Database("docbao").Collection("news")
-	links := crwl.FetchURL()
-	for _, link := range links {
-		ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-		count, er := new_collection.Count(
-			ctx,
-			bson.M{"url": link})
-		if er != nil {
-			log.Println("Can not count news, ", link, er.Error())
-			continue
-		}
-		if count == 0 {
-			created_int := currentTimeUnix()
-			new := model.News{URL: link, CreatedInt: created_int.Unix(), CreatedStr: created_int.Format("2006-01-02 15:04:05"), Status: 1}
-			new.Id = primitive.NewObjectID()
-			ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-			_, er := new_collection.InsertOne(ctx, &new)
-			if er != nil {
-				log.Println("Error, can not insert link", link, er.Error())
-				continue
-			}
-		}
-	}
-}
-
-func crawlURL() {
-	default_condition := bson.M{}
-	projection := bson.M{"_id": 1}
-	sortDesc := bson.M{"_id": 1}
-	new_collection := local_client.Client.Database("docbao").Collection("news")
-
-	paging := paging.NewPaging(
-		new_collection,
-		default_condition,
-		sortDesc, int64(1000))
-
-	lastId, er := paging.GetMaxKey(
-		projection,
-		sortDesc,
-		default_condition)
-	if er != nil {
-		panic(er.Error())
-	}
-	newId := lastId
-	var cookies_chan = make(chan bson.M)
-	var done = make(chan bool)
-	crwl := &crawler.Crawler{}
-	crwl.NewClient()
-	// go-routine for send data cho channels
+func fetchURL(wg *sync.WaitGroup) {
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		new_collection := local_client.Client.Database("docbao").Collection("news")
+		crwl := &crawler.Crawler{}
+		crwl.NewClient()
 		for {
-			newId, er = paging.Paginage(bson.M{"$gte": lastId}, 30*time.Second)
-			if er != nil {
-				log.Println("Error on get data, ", er.Error())
-				fmt.Println("Have no data to sync, please wait ", er.Error())
-				break
-			}
-			if len(paging.Results) == 0 {
-				fmt.Println("Have no data to sync, please wait")
-				log.Println("Have no data to sync, please wait")
-				// wait 30 minute before next query
-				time.Sleep(30 * time.Minute)
-				// update last id
-				lastId, er = paging.GetMaxKey(
-					projection,
-					sortDesc,
-					default_condition)
-			} else {
-				// Send the hits to the hits channel
-				for _, result := range paging.Results {
-					select {
-					case cookies_chan <- result:
-					}
-				}
-				lastId = newId
-			}
-		}
-		done <- true
-	}()
-
-	// group of routine for get string content update on cookie_full_v2
-	for i := 0; i < 5; i++ {
-		go func() {
-			count := 1
-			for cookie_chan := range cookies_chan {
-				count++
-				if count%5 == 0 {
-					crwl.NewClient()
-				}
-				var err error
-				var news model.News
-				bsonBytes, err := bson.Marshal(cookie_chan)
-
-				if err != nil {
-					log.Println("----------------Error-------------: can not get decode go_cookies bson bytes", err.Error())
-					continue
-				}
-				err = bson.Unmarshal(bsonBytes, &news)
-				if err != nil {
-					log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
-					continue
-				}
-				er := crwl.CrawlerURL(news.URL)
+			fmt.Println("check nil, ", crwl)
+			links := crwl.FetchURL()
+			for _, link := range links {
+				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+				count, er := new_collection.Count(
+					ctx,
+					bson.M{"url": link})
 				if er != nil {
-					log.Println("Error, can not crawl content, ", news.Id, er.Error())
-					ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-					_, er := new_collection.UpdateOne(
-						ctx,
-						bson.M{"_id": news.Id},
-						bson.M{"$set": bson.M{
-							"status": 4}})
-					if er != nil {
-						log.Println("Error, can not update status news, ", news.Id, er.Error())
-						continue
-					}
+					log.Println("Can not count news, ", link, er.Error())
 					continue
-				} else {
-					result := crwl.Getresult()
+				}
+				if count == 0 {
+					created_int := currentTimeUnix()
+					new := model.News{URL: link, CreatedInt: created_int.Unix(), CreatedStr: created_int.Format("2006-01-02 15:04:05"), Status: 1}
+					new.Id = primitive.NewObjectID()
 					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-					_, er = new_collection.UpdateOne(
-						ctx,
-						bson.M{"_id": news.Id},
-						bson.M{"$set": bson.M{
-							"title":         result.Title,
-							"content":       result.Content,
-							"category_news": result.CategoryNews,
-							"description":   result.Description,
-							"keyword":       result.Keyword,
-							"meta":          result.Meta,
-							"publish_date":  result.PublishDate,
-							"status":        2,
-							"updated_int":   currentTimeUnix().Unix(),
-							"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})
+					_, er := new_collection.InsertOne(ctx, &new)
 					if er != nil {
-						log.Println("Error on get content, ", news.Id, er.Error())
+						log.Println("Error, can not insert link", link, er.Error())
 						continue
 					}
-					log.Println("success")
 				}
 			}
+
+			// break 30 mins before next crawl
+			time.Sleep(30 * time.Minute)
+			crwl.NewClient()
+		}
+	}()
+}
+
+func crawlURL(wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		default_condition := bson.M{"status": 1}
+		projection := bson.M{"_id": 1}
+		sortDesc := bson.M{"_id": 1}
+		new_collection := local_client.Client.Database("docbao").Collection("news")
+
+		paging := paging.NewPaging(
+			new_collection,
+			default_condition,
+			sortDesc, int64(1000))
+
+		lastId, er := paging.GetMaxKey(
+			projection,
+			sortDesc,
+			default_condition)
+		if er != nil {
+			panic(er.Error())
+		}
+		newId := lastId
+		var cookies_chan = make(chan bson.M)
+		var done = make(chan bool)
+		crwl := &crawler.Crawler{}
+		crwl.NewClient()
+		// go-routine for send data cho channels
+		go func() {
+			for {
+				newId, er = paging.Paginage(bson.M{"$gte": lastId}, 30*time.Second)
+				if er != nil {
+					log.Println("Error on get data, ", er.Error())
+					fmt.Println("Have no data to sync, please wait ", er.Error())
+					break
+				}
+				if len(paging.Results) == 0 {
+					fmt.Println("Have no data to sync, please wait")
+					log.Println("Have no data to sync, please wait")
+					// wait 30 minute before next query
+					time.Sleep(30 * time.Minute)
+					// update last id
+					lastId, er = paging.GetMaxKey(
+						projection,
+						sortDesc,
+						default_condition)
+				} else {
+					// Send the hits to the hits channel
+					for _, result := range paging.Results {
+						select {
+						case cookies_chan <- result:
+						}
+					}
+					lastId = newId
+				}
+			}
+			done <- true
 		}()
-	}
-	<-done
+		// group of routine for get string content update on cookie_full_v2
+		for i := 0; i < 5; i++ {
+			go func() {
+				count := 1
+				for cookie_chan := range cookies_chan {
+					count++
+					if count%5 == 0 {
+						crwl.NewClient()
+					}
+					var err error
+					var news model.News
+					bsonBytes, err := bson.Marshal(cookie_chan)
+
+					if err != nil {
+						log.Println("----------------Error-------------: can not get decode go_cookies bson bytes", err.Error())
+						continue
+					}
+					err = bson.Unmarshal(bsonBytes, &news)
+					if err != nil {
+						log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
+						continue
+					}
+					er := crwl.CrawlerURL(news.URL)
+					if er != nil {
+						log.Println("Error, can not crawl content, ", news.Id, er.Error())
+						ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+						_, er := new_collection.UpdateOne(
+							ctx,
+							bson.M{"_id": news.Id},
+							bson.M{"$set": bson.M{
+								"status":      4,
+								"date_time":   currentTimeUnix().Format("2006-01-02"),
+								"updated_str": currentTimeUnix().Format("2006-01-02 15:04:05")}})
+						if er != nil {
+							log.Println("Error, can not update status news, ", news.Id, er.Error())
+							continue
+						}
+						continue
+					} else {
+						result := crwl.Getresult()
+						ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+						_, er = new_collection.UpdateOne(
+							ctx,
+							bson.M{"_id": news.Id},
+							bson.M{"$set": bson.M{
+								"title":         result.Title,
+								"content":       result.Content,
+								"category_news": result.CategoryNews,
+								"description":   result.Description,
+								"keyword":       result.Keyword,
+								"meta":          result.Meta,
+								"publish_date":  result.PublishDate,
+								"status":        2,
+								"date_time":     currentTimeUnix().Format("2006-01-02"),
+								"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})
+						if er != nil {
+							log.Println("Error on get content, ", news.Id, er.Error())
+							continue
+						}
+						log.Println("success")
+					}
+				}
+			}()
+		}
+		<-done
+	}()
 
 }
 

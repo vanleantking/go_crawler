@@ -210,6 +210,7 @@ func GetCategoryLink(list_news string, title_news string, doc *goquery.Document,
 			links = append(links, link)
 		}
 	})
-	return links
-
+	var result = make([]string, len(links))
+	copy(result, links)
+	return result
 }

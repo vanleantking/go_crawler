@@ -155,9 +155,9 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 	return client.Do(cr_request.Request, nil)
 }
 
-func (client *Client) InitRequest2(url string, host_name string) (*http.Response, error) {
+func (client *Client) InitRequest2(url string, host_name string, domain string) (*http.Response, error) {
 	header := Header{
-		Referrer:               "http://vietgiaitri.com/",
+		Referrer:               host_name,
 		Accept:                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
 		AcceptLanguage:         "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
 		Pragma:                 "no-cache",
@@ -166,7 +166,7 @@ func (client *Client) InitRequest2(url string, host_name string) (*http.Response
 		UpdateInsecCureRequest: "1",
 		CacheControl:           "max-age=0",
 		Connection:             "keep-alive",
-		Host:                   host_name}
+		Host:                   domain}
 
 	header.SetUserAgent(`Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36`)
 

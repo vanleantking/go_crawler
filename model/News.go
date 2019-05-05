@@ -17,8 +17,8 @@ type News struct {
 	PublishDate string             `json:"publish_date" bson:"publish_date"`
 	Words       string             `json:"words" bson:"words"`
 	Status      int                `json:"status" bson:"status"`
+	DateTime    string             `json:"date_time" bson:"date_time"`
 	CreatedInt  int64              `json:"created_int" bson:"created_int"`
-	UpdatedInt  int64              `json:"updated_int" bson:"updated_int"`
 	CreatedStr  string             `json:"created_str" bson:"created_str"`
 	UpdatedStr  string             `json:"updated_str" bson:"updated_str"`
 }

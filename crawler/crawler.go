@@ -3,6 +3,7 @@ package crawler
 // implement crawler web data from existing config
 import (
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,7 +15,11 @@ import (
 	"../utils"
 )
 
-var ConfigWeb = settings.SetConfig()
+var ConfigWeb map[string]settings.WebsiteConfig
+
+func init() {
+	ConfigWeb = settings.SetConfig()
+}
 
 type Crawler struct {
 	Client *settings.Client
@@ -69,7 +74,7 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 	referer, _ := getHostFromURL(log_url)
 	// client initial request on original url
 	if crw.WS.SpecialHeader {
-		res, err = crw.Client.InitRequest2(log_url, referer)
+		res, err = crw.Client.InitRequest2(log_url, referer, crw.WS.Domain)
 	} else {
 		res, err = crw.Client.InitRequest(log_url)
 	}
@@ -111,7 +116,7 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 		if err == nil {
 			// initial another request on parse url
 			if crw.WS.SpecialHeader {
-				res, err = crw.Client.InitRequest2(parsed_url, referer)
+				res, err = crw.Client.InitRequest2(parsed_url, referer, crw.WS.Domain)
 			} else {
 				res, err = crw.Client.InitRequest(parsed_url)
 			}
@@ -215,6 +220,7 @@ func (crw *Crawler) FetchURL() []string {
 		if config.PaginateRegex != "" {
 			for i := 1; i <= 10; i++ {
 				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+				crw.settingWebConfig(crawl_url)
 				links = crw.crawlSingleLink(crawl_url, &config)
 				results = append(results, links...)
 			}
@@ -234,7 +240,7 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteC
 	// client initial request on original url
 	referer, _ := getHostFromURL(crawl_link)
 	if config.SpecialHeader {
-		res, err = crw.Client.InitRequest2(crawl_link, referer)
+		res, err = crw.Client.InitRequest2(crawl_link, referer, crw.WS.Domain)
 	} else {
 		res, err = crw.Client.InitRequest(crawl_link)
 	}
@@ -252,7 +258,8 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteC
 	// Load the HTML document
 	doc, docer := goquery.NewDocumentFromReader(res.Body)
 	if docer != nil {
-		panic(docer.Error())
+		log.Println("Error, ", docer.Error())
+		return make([]string, 0)
 	}
 	return utils.GetCategoryLink(config.ListNews, config.TitleNews, doc, referer)
 }
