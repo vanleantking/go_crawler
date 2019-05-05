@@ -106,7 +106,7 @@ func (paging *Paging) GetMaxKey(projection bson.M, sort bson.M, condition bson.M
 		options.FindOne().SetProjection(projection).SetSort(sort)).Decode(&maxKey)
 
 	if er != nil {
-		return primitive.NewObjectID(), er
+		return primitive.NilObjectID, er
 	}
 	return maxKey.ID, nil
 }

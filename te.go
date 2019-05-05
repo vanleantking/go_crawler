@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -57,10 +58,8 @@ func fetchURL(wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 		new_collection := local_client.Client.Database("docbao").Collection("news")
-		crwl := &crawler.Crawler{}
-		crwl.NewClient()
+		crwl := crawler.InitCrawler()
 		for {
-			fmt.Println("check nil, ", crwl)
 			links := crwl.FetchURL()
 			for _, link := range links {
 				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
@@ -110,13 +109,12 @@ func crawlURL(wg *sync.WaitGroup) {
 			sortDesc,
 			default_condition)
 		if er != nil {
-			panic(er.Error())
+			log.Println("Error, ", er.Error())
 		}
 		newId := lastId
 		var cookies_chan = make(chan bson.M)
 		var done = make(chan bool)
-		crwl := &crawler.Crawler{}
-		crwl.NewClient()
+		crwl := crawler.InitCrawler()
 		// go-routine for send data cho channels
 		go func() {
 			for {
@@ -170,7 +168,12 @@ func crawlURL(wg *sync.WaitGroup) {
 						log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
 						continue
 					}
-					er := crwl.CrawlerURL(news.URL)
+					result, er := crwl.CrawlerURL(news.URL)
+					u, err := url.Parse(news.URL)
+					if err != nil {
+						log.Println("Error, can not get domain, ", err.Error())
+					}
+					domain := utils.GetDomainName(u.Hostname())
 					if er != nil {
 						log.Println("Error, can not crawl content, ", news.Id, er.Error())
 						ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -179,6 +182,7 @@ func crawlURL(wg *sync.WaitGroup) {
 							bson.M{"_id": news.Id},
 							bson.M{"$set": bson.M{
 								"status":      4,
+								"domain":      domain,
 								"date_time":   currentTimeUnix().Format("2006-01-02"),
 								"updated_str": currentTimeUnix().Format("2006-01-02 15:04:05")}})
 						if er != nil {
@@ -187,7 +191,6 @@ func crawlURL(wg *sync.WaitGroup) {
 						}
 						continue
 					} else {
-						result := crwl.Getresult()
 						ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 						_, er = new_collection.UpdateOne(
 							ctx,
@@ -200,6 +203,7 @@ func crawlURL(wg *sync.WaitGroup) {
 								"keyword":       result.Keyword,
 								"meta":          result.Meta,
 								"publish_date":  result.PublishDate,
+								"domain":        domain,
 								"status":        2,
 								"date_time":     currentTimeUnix().Format("2006-01-02"),
 								"updated_str":   currentTimeUnix().Format("2006-01-02 15:04:05")}})

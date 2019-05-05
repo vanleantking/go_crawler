@@ -7,6 +7,7 @@ import (
 type News struct {
 	Id          primitive.ObjectID `json:"id" bson:"_id"`
 	URL         string             `json:"url" bson:"url"`
+	Domain      string             `json:"domain" bson:"domain"`
 	Title       string             `json:"title" bson:"title"`
 	Category    string             `json:"category" bson:"category"` // ([cat1], [cat2])
 	Content     string             `json:"content" bson:"content"`

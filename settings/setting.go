@@ -213,7 +213,7 @@ func (crRequest *CrRequest) SetCustomeHeader(header map[string]string) {
 // setting client with cookie jar
 func NewClient() *Client {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-	httpClient := http.Client{Timeout: HttpTimeout, Transport: nil, CheckRedirect: nil, Jar: jar}
+	httpClient := http.Client{Timeout: HTTPTIMEOUT, Transport: nil, CheckRedirect: nil, Jar: jar}
 
 	c := &Client{client: &httpClient}
 	c.SetProxy()

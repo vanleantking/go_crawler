@@ -23,8 +23,7 @@ func init() {
 
 type Crawler struct {
 	Client *settings.Client
-	WS     *settings.WebsiteConfig
-	Crresult
+	WS     map[string]settings.WebsiteConfig
 }
 
 type Crresult struct {
@@ -47,40 +46,34 @@ type Result struct {
 	PublishDate  string
 }
 
-func (crw *Crawler) Getresult() *Result {
-	return &Result{
-		Content:      crw.content,
-		Title:        crw.title,
-		CategoryNews: crw.category_news,
-		Keyword:      crw.keyword,
-		Description:  crw.description,
-		Meta:         crw.meta,
-		PublishDate:  crw.publish_date}
+func InitCrawler() *Crawler {
+	return &Crawler{
+		WS:     ConfigWeb,
+		Client: settings.NewClient()}
+
 }
 
 func (crw *Crawler) NewClient() {
-	client := settings.NewClient()
-	crw.Client = client
+	crw.Client = settings.NewClient()
 }
 
-func (crw *Crawler) CrawlerURL(log_url string) error {
-	crw.Crresult = Crresult{}
-
-	crw.settingWebConfig(log_url)
+func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 
 	var res *http.Response
 	var err error
 
 	referer, _ := getHostFromURL(log_url)
+	ws := crw.getWebConfig(log_url)
 	// client initial request on original url
-	if crw.WS.SpecialHeader {
-		res, err = crw.Client.InitRequest2(log_url, referer, crw.WS.Domain)
+	if ws.SpecialHeader {
+		res, err = crw.Client.InitRequest2(log_url, referer, ws.Domain)
 	} else {
 		res, err = crw.Client.InitRequest(log_url)
 	}
+	re := &Result{}
 
 	if err != nil {
-		return err
+		return re, err
 	}
 	defer res.Body.Close()
 
@@ -89,19 +82,19 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 	// Continue if Response code is success
 	if res.StatusCode != 200 {
 		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
-		return errors.New(msg)
+		return re, errors.New(msg)
 	}
 	// Load the HTML document
 	doc, docer := goquery.NewDocumentFromReader(res.Body)
 	if docer != nil {
-		return docer
+		return re, docer
 	}
 
 	// Find the content page
-	result.content = utils.GetContentFromClass(crw.WS.ContentStruct, doc)
+	result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
 	result.content = utils.StrimSpace(result.content)
 
-	result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryStruct, doc)
+	result.category_news = utils.GetCategoryFromClass(ws.CategoryStruct, doc)
 	result.category_news = utils.StrimSpace(result.category_news)
 
 	// find title page
@@ -115,15 +108,15 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 		// Parse processed url success
 		if err == nil {
 			// initial another request on parse url
-			if crw.WS.SpecialHeader {
-				res, err = crw.Client.InitRequest2(parsed_url, referer, crw.WS.Domain)
+			if ws.SpecialHeader {
+				res, err = crw.Client.InitRequest2(parsed_url, referer, ws.Domain)
 			} else {
 				res, err = crw.Client.InitRequest(parsed_url)
 			}
 
 			// initial request error
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer res.Body.Close()
 
@@ -133,42 +126,48 @@ func (crw *Crawler) CrawlerURL(log_url string) error {
 				doc, docer := goquery.NewDocumentFromReader(res.Body)
 				// continue to next content_news when can not read, and do nothing
 				if docer != nil {
-					return docer
+					return nil, docer
 				}
 
 				// Find the content
-				result.content = utils.GetContentFromClass(crw.WS.ContentStruct, doc)
+				result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
 				result.content = utils.StrimSpace(result.content)
 
 				// Find the category on new url
-				result.category_news = utils.GetCategoryFromClass(crw.WS.CategoryStruct, doc)
+				result.category_news = utils.GetCategoryFromClass(ws.CategoryStruct, doc)
 				result.category_news = utils.StrimSpace(result.category_news)
 			} else {
 				msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
-				return errors.New(msg)
+				return re, errors.New(msg)
 			}
 			// Parse url failed
 		} else {
-			msg := "parse URL failed: " + crw.WS.Url
-			return errors.New(msg)
+			msg := "parse URL failed: " + ws.Url
+			return re, errors.New(msg)
 		}
 	}
-	crw.Crresult = result
-	crw.GetKeywords(doc)
-	crw.GetDescription(doc)
-	crw.GetMetaTags(doc)
-	crw.GetPublishDate(doc)
-	return nil
+	result.GetKeywords(doc, ws.Keywords)
+	result.GetDescription(doc, ws.Description)
+	result.GetMetaTags(doc)
+	result.GetPublishDate(doc, ws.PublishDate)
+	re = &Result{
+		Content:      result.content,
+		Title:        result.title,
+		CategoryNews: result.category_news,
+		Keyword:      result.keyword,
+		Description:  result.description,
+		Meta:         result.meta,
+		PublishDate:  result.publish_date}
+	return re, nil
 }
 
-func (crw *Crawler) settingWebConfig(log_url string) {
+func (crw *Crawler) getWebConfig(log_url string) settings.WebsiteConfig {
 	u, err := url.Parse(log_url)
 	if err != nil {
 		panic(err)
 	}
 	domain := utils.GetDomainName(u.Hostname())
-	websiteStruct := ConfigWeb[domain]
-	crw.WS = &websiteStruct
+	return crw.WS[domain]
 }
 
 func (result *Crresult) GetMetaTag(tag string, doc *goquery.Document) string {
@@ -182,33 +181,33 @@ func (result *Crresult) GetMetaTag(tag string, doc *goquery.Document) string {
 	return metaContent
 }
 
-func (crw *Crawler) GetPublishDate(doc *goquery.Document) {
-	contentSelection := doc.Find(crw.WS.PublishDate)
-	crw.publish_date = contentSelection.Text()
+func (result *Crresult) GetPublishDate(doc *goquery.Document, publish_class string) {
+	contentSelection := doc.Find(publish_class)
+	result.publish_date = contentSelection.Text()
 }
 
-func (crw *Crawler) GetMetaTags(doc *goquery.Document) {
+func (result *Crresult) GetMetaTags(doc *goquery.Document) {
 	var metas = map[string]string{}
 
 	doc.Find("meta").Each(func(i int, s *goquery.Selection) {
 		name, _ := s.Attr("name")
 		metas[name], _ = s.Attr("content")
 	})
-	crw.meta = metas
+	result.meta = metas
 }
 
-func (crw *Crawler) GetKeywords(doc *goquery.Document) {
-	keywordstr := crw.Crresult.GetMetaTag(crw.WS.Keywords, doc)
+func (result *Crresult) GetKeywords(doc *goquery.Document, keyword_class string) {
+	keywordstr := result.GetMetaTag(keyword_class, doc)
 	var keywords = []string{}
 	pieces := strings.Split(keywordstr, ",")
 	for _, k := range pieces {
 		keywords = append(keywords, strings.TrimSpace(k))
 	}
-	crw.Crresult.keyword = keywords
+	result.keyword = keywords
 }
 
-func (crw *Crawler) GetDescription(doc *goquery.Document) {
-	crw.Crresult.description = crw.Crresult.GetMetaTag(crw.WS.Description, doc)
+func (result *Crresult) GetDescription(doc *goquery.Document, description_class string) {
+	result.description = result.GetMetaTag(description_class, doc)
 }
 
 // request for auto get link from category or hompage on web config
@@ -216,31 +215,31 @@ func (crw *Crawler) FetchURL() []string {
 	var results = []string{}
 	var links = []string{}
 	crawl_url := ""
-	for _, config := range ConfigWeb {
+	for domain, config := range crw.WS {
 		if config.PaginateRegex != "" {
 			for i := 1; i <= 10; i++ {
 				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
-				crw.settingWebConfig(crawl_url)
-				links = crw.crawlSingleLink(crawl_url, &config)
+				links = crw.crawlSingleLink(crawl_url, domain)
 				results = append(results, links...)
 			}
 		} else {
 			crawl_url = config.Url
-			links = crw.crawlSingleLink(crawl_url, &config)
+			links = crw.crawlSingleLink(crawl_url, domain)
 			results = append(results, links...)
 		}
 	}
 	return results
 }
 
-func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteConfig) []string {
+func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) []string {
 	var res *http.Response
 	var err error
 
 	// client initial request on original url
 	referer, _ := getHostFromURL(crawl_link)
-	if config.SpecialHeader {
-		res, err = crw.Client.InitRequest2(crawl_link, referer, crw.WS.Domain)
+	ws := crw.WS[domain]
+	if ws.SpecialHeader {
+		res, err = crw.Client.InitRequest2(crawl_link, referer, domain)
 	} else {
 		res, err = crw.Client.InitRequest(crawl_link)
 	}
@@ -261,7 +260,7 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, config *settings.WebsiteC
 		log.Println("Error, ", docer.Error())
 		return make([]string, 0)
 	}
-	return utils.GetCategoryLink(config.ListNews, config.TitleNews, doc, referer)
+	return utils.GetCategoryLink(ws.ListNews, ws.TitleNews, doc, referer, domain)
 }
 
 func getHostFromURL(url_str string) (string, error) {
@@ -271,4 +270,12 @@ func getHostFromURL(url_str string) (string, error) {
 		return "", err
 	}
 	return u.Scheme + "://" + u.Host, nil
+}
+
+func (crw *Crawler) FetchURLs(crawl_link string) []string {
+	var results = []string{}
+	var links = []string{}
+	links = crw.crawlSingleLink(crawl_link, "vnexpress.net")
+	results = append(results, links...)
+	return results
 }

@@ -6,6 +6,7 @@ const (
 	USERAGENTFILE = "./config/user_agents.json"
 	PROXYFILE     = "./config/proxy.json"
 	CONFIGFILE    = "./config/config.json"
+	HTTPTIMEOUT   = time.Duration(15 * time.Second)
 )
 
 var FreeProxy = []string{"http://spys.one/free-proxy-list/VN/", // complicated structure, not crawler, port write with document.write <= run script on web
@@ -20,7 +21,5 @@ var FreeProxy = []string{"http://spys.one/free-proxy-list/VN/", // complicated s
 var UserAgentString = []string{"http://useragentstring.com/pages/useragentstring.php?name=",
 	"https://udger.com/resources/ua-list/browser-detail?browser=Chrome",
 	"https://developers.whatismybrowser.com/useragents/explore/software_name/chrome/2"}
-
-var HttpTimeout = time.Duration(15 * time.Second)
 
 // var HttpTimeout2 = time.Duration(5 * time.Second)

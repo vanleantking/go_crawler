@@ -56,7 +56,6 @@ func readConfig() ([]WebsiteConfig, error) {
 
 func SetConfig() map[string]WebsiteConfig {
 	websites, er := readConfig()
-	fmt.Println(websites)
 	if er != nil {
 		panic(er.Error())
 	}

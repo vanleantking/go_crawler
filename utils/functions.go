@@ -199,13 +199,13 @@ func GetDomainName(hostname string) string {
 	return strings.Replace(hostname, "www.", "", -1)
 }
 
-func GetCategoryLink(list_news string, title_news string, doc *goquery.Document, host string) []string {
+func GetCategoryLink(list_news string, title_news string, doc *goquery.Document, host_name string, domain string) []string {
 	var links = []string{}
 	doc.Find(list_news).Each(func(i int, s *goquery.Selection) {
 		href := s.Find(title_news)
 		if link, ok := href.Attr("href"); ok {
-			if !strings.Contains(link, host) {
-				link = host + link
+			if !strings.Contains(link, domain) {
+				link = host_name + link
 			}
 			links = append(links, link)
 		}
