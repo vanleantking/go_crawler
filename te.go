@@ -72,7 +72,7 @@ func fetchURL(wg *sync.WaitGroup) {
 				}
 				if count == 0 {
 					created_int := currentTimeUnix()
-					new := model.News{URL: link, CreatedInt: created_int.Unix(), CreatedStr: created_int.Format("2006-01-02 15:04:05"), Status: 1}
+					new := model.News{URL: link, CreatedInt: created_int.Unix(), Status: 1}
 					new.Id = primitive.NewObjectID()
 					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 					_, er := new_collection.InsertOne(ctx, &new)
