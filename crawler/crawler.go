@@ -81,7 +81,7 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 
 	// Continue if Response code is success
 	if res.StatusCode != 200 {
-		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode)
+		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode) + " " + res.Status
 		return re, errors.New(msg)
 	}
 	// Load the HTML document
@@ -245,14 +245,16 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) []string {
 	}
 
 	if err != nil {
-		panic(err.Error())
+		log.Println(err.Error(), crawl_link)
+		return make([]string, 0)
 	}
 	defer res.Body.Close()
 
 	// Continue if Response code is success
 	if res.StatusCode != 200 {
-		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode) + crawl_link
-		panic(msg)
+		msg := "status code error: " + " " + res.Status + " " + crawl_link
+		log.Println(msg)
+		return make([]string, 0)
 	}
 	// Load the HTML document
 	doc, docer := goquery.NewDocumentFromReader(res.Body)

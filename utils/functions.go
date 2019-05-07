@@ -125,7 +125,7 @@ func GetCategoryFromClass(classes string, doc *goquery.Document) string {
 			piece_str := strings.ToLower(strings.TrimSpace(piece.Text()))
 			if _, ok := remove_list[piece_str]; !ok {
 				// Add special charater "|" among category
-				content = piece_str + " | "
+				content = piece_str
 			}
 		})
 		if content != "" {
