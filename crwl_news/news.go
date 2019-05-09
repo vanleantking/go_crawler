@@ -13,7 +13,7 @@ import (
 
 	"../model"
 	"../paging"
-	"../utils"
+	"./utils"
 	"gopkg.in/mgo.v2/bson"
 
 	"../crawler"

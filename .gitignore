@@ -2,3 +2,7 @@ config/
 utils/constant.go
 log/vietgiaitri.txt
 log/
+crwl_news/utils/constant.go
+crwl_news/process_words/wordprocess/tri-grams.txt
+crwl_news/process_words/wordprocess/vnmstopwords.txt
+crwl_news/process_words/wordprocess/bi-grams.txt

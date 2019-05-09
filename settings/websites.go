@@ -3,9 +3,9 @@ package settings
 import "time"
 
 const (
-	USERAGENTFILE = "./config/user_agents.json"
-	PROXYFILE     = "./config/proxy.json"
-	CONFIGFILE    = "./config/config.json"
+	USERAGENTFILE = "../config/user_agents.json"
+	PROXYFILE     = "../config/proxy.json"
+	CONFIGFILE    = "../config/config.json"
 	HTTPTIMEOUT   = time.Duration(15 * time.Second)
 )
 
