@@ -22,8 +22,8 @@ import (
 
 	"reflect"
 
-	"./settings"
-	"./utils"
+	"../settings"
+	"../utils"
 )
 
 type Result struct {
@@ -32,9 +32,9 @@ type Result struct {
 }
 
 var (
-	currentDate  = time.Now()
-	toDate       = fmt.Sprintf("%d-%d-%d", currentDate.Year(), currentDate.Month(), currentDate.Day())
-	fromDate     = "2000-01-01"
+	currentDate = time.Now()
+
+	// fromDate     = "2019-05-13"
 	DateRegexp   = `\d{4,}`
 	local_client *utils.ClientMGO
 	DataTabs     = []string{
@@ -88,14 +88,21 @@ func main() {
 	// lastday_collection := local_client.Client.Database("new_ck").Collection("last_day")
 
 	//STOCK_PARAMETER {page, pageSize, catID, stockID, fromDate, toDate}
-	getPriceDayInfo(&wg)
-	getOrderMatchInfo(&wg)
-	getOrderReservationInfo(&wg)
+	for true {
+		toDate := fmt.Sprintf("%d-%d-%d", currentDate.Year(), currentDate.Month(), currentDate.Day())
+		fromDate := toDate
+		getPriceDayInfo(fromDate, toDate, &wg)
+		getOrderMatchInfo(fromDate, toDate, &wg)
+		getOrderReservationInfo(fromDate, toDate, &wg)
+		// break 24 hour for next crawl
+		log.Println("Info, Break 24 hours")
+		time.Sleep(24 * time.Hour)
+	}
 	wg.Wait()
 	log.Println("Success")
 }
 
-func getPriceDayInfo(wg *sync.WaitGroup) {
+func getPriceDayInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -112,16 +119,17 @@ func getPriceDayInfo(wg *sync.WaitGroup) {
 
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
-
 				startPage := 1
 				maxPage := 1000
 				for startPage <= maxPage {
 					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
-						DataTabs[0], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
+						DataTabs[0], startPage, utils.PAGESIZE, stockInfo.CatID,
+						stockInfo.StockID, fromDate, toDate)
 
 					// setting referer link for each stock
-					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[0], stockInfo.ExchangeCode, stockInfo.StockID)
+					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[0],
+						stockInfo.ExchangeCode, stockInfo.StockID)
 					header["Referrer"] = refererLink
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
@@ -223,7 +231,7 @@ func getPriceDayInfo(wg *sync.WaitGroup) {
 	}()
 }
 
-func getOrderMatchInfo(wg *sync.WaitGroup) {
+func getOrderMatchInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -245,10 +253,12 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 				for startPage <= maxPage {
 					time.Sleep(utils.RangeWideTimeOut())
 					log_url := fmt.Sprintf(utils.VIETSTOCK_DATA,
-						DataTabs[1], startPage, utils.PAGESIZE, stockInfo.CatID, stockInfo.StockID, fromDate, toDate)
+						DataTabs[1], startPage, utils.PAGESIZE, stockInfo.CatID,
+						stockInfo.StockID, fromDate, toDate)
 
 					// setting referer link for each stock
-					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[1], stockInfo.ExchangeCode, stockInfo.StockCode)
+					refererLink := fmt.Sprintf(utils.STOCK_REFERER, RefererTabs[1],
+						stockInfo.ExchangeCode, stockInfo.StockCode)
 					header["Referrer"] = refererLink
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
@@ -278,7 +288,8 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 									matchDate := regexp.MustCompile(DateRegexp)
 									trDate := int64(0)
 									if matchDate.MatchString(orderMatchInterface["TradingDate"].(string)) {
-										match, _ := strconv.ParseInt(matchDate.FindString(orderMatchInterface["TradingDate"].(string)), 10, 64)
+										match, _ := strconv.ParseInt(matchDate.FindString(
+											orderMatchInterface["TradingDate"].(string)), 10, 64)
 										trDate = match
 									}
 
@@ -358,7 +369,7 @@ func getOrderMatchInfo(wg *sync.WaitGroup) {
 	}()
 }
 
-func getOrderReservationInfo(wg *sync.WaitGroup) {
+func getOrderReservationInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
