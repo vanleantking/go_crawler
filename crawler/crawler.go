@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -218,6 +219,8 @@ func (crw *Crawler) FetchURL() []string {
 	for domain, config := range crw.WS {
 		if config.PaginateRegex != "" {
 			for i := 1; i <= 10; i++ {
+				// break 5s before crawl next page
+				time.Sleep(10 * time.Second)
 				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
 				links = crw.crawlSingleLink(crawl_url, domain)
 				results = append(results, links...)
