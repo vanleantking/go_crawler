@@ -34,7 +34,7 @@ type Result struct {
 var (
 	currentDate = time.Now()
 
-	// fromDate     = "2019-05-13"
+	// fromDate     = "2019-05-26"
 	DateRegexp   = `\d{4,}`
 	local_client *utils.ClientMGO
 	DataTabs     = []string{

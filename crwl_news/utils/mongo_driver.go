@@ -28,6 +28,12 @@ var MongoDBInfo = map[string]DBInfo{
 		Port:     PORTLOCAL,
 		Database: DBCK,
 		Username: "",
+		Password: ""},
+	"docbao": DBInfo{
+		Address:  ADDLOCALHOST,
+		Port:     PORTLOCAL,
+		Database: "docbao",
+		Username: "",
 		Password: ""}}
 
 func ConnectMGOLocalDB(dbInfo DBInfo) (error, *ClientMGO) {

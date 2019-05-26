@@ -23,40 +23,16 @@ type DBInfo struct {
 }
 
 var MongoDBInfo = map[string]DBInfo{
-	"data_only": DBInfo{
-		Address:  ADDRESS,
-		Port:     PORT2,
-		Database: DATABASE2,
-		Username: USERNAME2,
-		Password: PASSWORD2},
-	"dmplog": DBInfo{
-		Address:  DMP_LOG,
-		Port:     PORT3,
-		Database: DATABASE4,
-		Username: USERNAME4,
-		Password: PASSWORD4},
-	"ip_info": DBInfo{
-		Address:  IPINFO,
-		Port:     PORT4,
-		Database: DATABASE3,
-		Username: USERNAME5,
-		Password: PASSWORD5},
-	"dmp_data": DBInfo{
-		Address:  MY_HOST,
-		Port:     PORT1,
-		Database: DATABASE3,
-		Username: USERNAME3,
-		Password: PASSWORD3},
-	"history_only": DBInfo{
-		Address:  HISTORY_ONLY,
-		Port:     PORT1,
-		Database: DATABASE1,
-		Username: USERNAME1,
-		Password: PASSWORD1},
 	"localhost": DBInfo{
 		Address:  ADDLOCALHOST,
 		Port:     PORTLOCAL,
 		Database: DBCK,
+		Username: "",
+		Password: ""},
+	"docbao": DBInfo{
+		Address:  ADDLOCALHOST,
+		Port:     PORTLOCAL,
+		Database: "docbao",
 		Username: "",
 		Password: ""}}
 

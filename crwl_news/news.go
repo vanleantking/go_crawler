@@ -152,9 +152,9 @@ func crawlURL(wg *sync.WaitGroup) {
 				count := 1
 				for cookie_chan := range cookies_chan {
 					count++
-					if count%5 == 0 {
-						crwl.NewClient()
-					}
+
+					// setting new client each request
+					crwl.NewClient()
 					var err error
 					var news model.News
 					bsonBytes, err := bson.Marshal(cookie_chan)
