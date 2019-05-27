@@ -94,7 +94,7 @@ func crawlURL(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		default_condition := bson.M{"status": 1}
+		default_condition := bson.M{"status": bson.M{"$in": []int{4, 1}}}
 		projection := bson.M{"_id": 1}
 		sortDesc := bson.M{"_id": 1}
 		new_collection := local_client.Client.Database("docbao").Collection("news")

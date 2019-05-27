@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"database/sql"
-
 	_ "github.com/go-sql-driver/mysql"
 
 	// "fmt"
@@ -188,11 +186,6 @@ func CleanDataContent(content string) string {
 	result = removeFunctionScript(result)
 	result = removeTagHTML(result)
 	return result
-}
-
-func ConnectMySQL() (*sql.DB, error) {
-	MyDb, err := sql.Open("mysql", MY_USERNAME+":"+MY_PASSWORD+"@"+"tcp("+MY_HOST+":3306)"+"/"+MY_DATABASE+"?parseTime=true")
-	return MyDb, err
 }
 
 func GetDomainName(hostname string) string {
