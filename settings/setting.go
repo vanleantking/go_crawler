@@ -133,12 +133,12 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 
 func (client *Client) InitRequest(url string) (*http.Response, error) {
 	header := Header{
-		Referrer:               "https://www.google.com.vn/",
-		Accept:                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-		AcceptLanguage:         "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-		Pragma:                 "no-cache",
-		Method:                 "GET",
-		ContentType:            "text/html; charset=utf-8",
+		Referrer:       "https://www.google.com.vn/",
+		Accept:         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
+		AcceptLanguage: "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
+		// Pragma:                 "no-cache",
+		Method: "GET",
+		// ContentType:            "text/html; charset=utf-8",
 		UpdateInsecCureRequest: "1",
 		CacheControl:           "max-age=0",
 		Connection:             "keep-alive"}
@@ -157,18 +157,18 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 
 func (client *Client) InitRequest2(url string, host_name string, domain string) (*http.Response, error) {
 	header := Header{
-		Referrer:               host_name,
-		Accept:                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-		AcceptLanguage:         "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-		Pragma:                 "no-cache",
-		Method:                 "GET",
-		ContentType:            "text/html; charset=utf-8",
+		Referrer:       host_name,
+		Accept:         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
+		AcceptLanguage: "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
+		// Pragma:                 "no-cache",
+		// Method:                 "GET",
+		// ContentType:            "text/html; charset=utf-8",
 		UpdateInsecCureRequest: "1",
 		CacheControl:           "max-age=0",
 		Connection:             "keep-alive",
 		Host:                   domain}
 
-	header.SetUserAgent(`Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36`)
+	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 
 	cr_request, er := client.NewRequest(header.Method, url, nil)
 
