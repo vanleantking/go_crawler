@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -202,7 +203,7 @@ func crawlURL(wg *sync.WaitGroup) {
 								"description":   result.Description,
 								"keyword":       result.Keyword,
 								"meta":          result.Meta,
-								"publish_date":  result.PublishDate,
+								"publish_date":  strings.TrimSpace(result.PublishDate),
 								"domain":        domain,
 								"status":        2,
 								"date_time":     currentTimeUnix().Format("2006-01-02"),
