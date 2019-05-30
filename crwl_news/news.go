@@ -147,7 +147,7 @@ func crawlURL(wg *sync.WaitGroup) {
 			done <- true
 		}()
 		// group of routine for get string content update on cookie_full_v2
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 20; i++ {
 			go func() {
 				count := 1
 				for cookie_chan := range cookies_chan {
