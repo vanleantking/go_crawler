@@ -3,7 +3,9 @@ package crawler
 // implement crawler web data from existing config
 import (
 	"errors"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,6 +19,9 @@ import (
 )
 
 var ConfigWeb map[string]settings.WebsiteConfig
+var (
+	BreakTime = [10]int64{700, 600, 500, 1000, 10000, 5000, 1500, 800, 3000, 2500}
+)
 
 func init() {
 	ConfigWeb = settings.SetConfig()
@@ -221,7 +226,11 @@ func (crw *Crawler) FetchURL() []string {
 			for i := 1; i <= 10; i++ {
 				// break 5s before crawl next page
 				time.Sleep(10 * time.Second)
-				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+				crawl_url = config.Url
+				if i > 1 {
+					crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+				}
+
 				links = crw.crawlSingleLink(crawl_url, domain)
 				results = append(results, links...)
 			}
@@ -230,6 +239,35 @@ func (crw *Crawler) FetchURL() []string {
 			links = crw.crawlSingleLink(crawl_url, domain)
 			results = append(results, links...)
 		}
+	}
+	return results
+}
+
+// request for auto get link from category or hompage on web config
+func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig) []string {
+	var results = []string{}
+	var links = []string{}
+	crawl_url := ""
+
+	fmt.Println("config, ", config, domain, config.PaginateRegex)
+	if config.PaginateRegex != "" {
+		for i := 1; i <= 10; i++ {
+			// break random time before crawl next page
+			break_time := rand.Intn(len(BreakTime))
+			duration := time.Duration(BreakTime[break_time]) * time.Microsecond
+			time.Sleep(duration)
+			crawl_url = config.Url
+			if i > 1 {
+				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+			}
+
+			links = crw.crawlSingleLink(crawl_url, domain)
+			results = append(results, links...)
+		}
+	} else {
+		crawl_url = config.Url
+		links = crw.crawlSingleLink(crawl_url, domain)
+		results = append(results, links...)
 	}
 	return results
 }
