@@ -8,11 +8,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"time"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -35,9 +37,17 @@ type Response struct {
 	*http.Response
 }
 
+const (
+	ErrProxyPrefix = "Error, failed on connect proxy, "
+)
+
 // Custom new request type for setting header on http.Request
 type CrRequest struct {
 	*http.Request
+}
+
+func (proxy *Proxy) ToString() string {
+	return proxy.Schema + "://" + proxy.ProxyIP + ":" + proxy.Port
 }
 
 func (cr *CrRequest) SetHeader(header Header) {
@@ -96,39 +106,47 @@ func (client *Client) NewRequest(method, urlStr string, body io.Reader) (*CrRequ
 	return cr_request, nil
 }
 
-func (client *Client) SetProxy() {
+func (client *Client) SetProxy() Proxy {
 
 	condition := true
+	var used_proxy Proxy
 	for condition {
 		var proxyUrl *url.URL
 		proxy_index := rand.Intn(len(ProxyList.ActiveProxy))
-		proxy := ProxyList.ActiveProxy[proxy_index]
-		proxyUrl, err := url.Parse(proxy.Schema + "://" + proxy.ProxyIP + ":" + proxy.Port)
+		used_proxy = ProxyList.ActiveProxy[proxy_index]
+		proxyUrl, err := url.Parse(used_proxy.Schema + "://" + used_proxy.ProxyIP + ":" + used_proxy.Port)
 		if err != nil {
 			condition = true
-		} else {
-			client.client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl), TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-			condition = false
 		}
+		client.client.Transport = &http.Transport{
+			DisableCompression:  true,
+			TLSHandshakeTimeout: 10 * time.Second,
+			Proxy:               http.ProxyURL(proxyUrl),
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}}
+		return used_proxy
 	}
+	return used_proxy
 }
 
 func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	// retrieve another proxy 3 time request when failed
 	flag := 0
+	var proxy Proxy
 	re_error := errors.New("")
 	for flag < 10 {
 		resp, err := c.client.Do(req)
-		if err != nil {
-			flag++
-			re_error = err
-			c.SetProxy()
-		} else {
+		if err == nil {
 			return resp, err
+
 		}
+		flag++
+		re_error = err
+		proxy = c.SetProxy()
 	}
 
-	return nil, errors.New("--------------------------Refused connection after 10 time retrieve----------------------------------------" + re_error.Error())
+	msg := ErrProxyPrefix + proxy.ToString()
+	log.Println(msg, re_error.Error())
+	return nil, errors.New(msg)
 }
 
 func (client *Client) InitRequest(url string) (*http.Response, error) {

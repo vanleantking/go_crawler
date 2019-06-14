@@ -23,6 +23,7 @@ type WebsiteConfig struct {
 	Category       string `json:"category"`
 	Meta           string `json:"meta_tag"`
 	HomePage       bool   `json:"homepage"`
+	CategoryType   string `json:"category_type"`
 }
 
 type Config struct {

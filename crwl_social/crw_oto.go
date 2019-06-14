@@ -17,11 +17,18 @@ import (
 	"../utils"
 	"gopkg.in/mgo.v2/bson"
 
+	"regexp"
+
 	"../crawler"
+	"../settings"
 )
 
 var (
 	local_client *utils.ClientMGO
+)
+
+var (
+	RegexpProxy = `[a-z0-9\\.]+`
 )
 
 func main() {
@@ -59,12 +66,13 @@ func fetchURL(wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 		new_collection := local_client.Client.Database("docbao").Collection("domain_xe")
-		fmt.Println(new_collection.Name(), local_client.Client.Database("docbao").Name(), local_client.Client.ConnectionString())
+		fmt.Println(new_collection.Name(),
+			local_client.Client.Database("docbao").Name(),
+			local_client.Client.ConnectionString())
 		crwl := crawler.InitCrawler()
 		for {
 			for domain, config := range crwl.WS {
-				links := crwl.FetchSingleURL(domain, config)
-				fmt.Println("link fetch, ", links)
+				links, _ := crwl.FetchSingleURL(domain, config)
 				for _, link := range links {
 					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 					count, er := new_collection.Count(
@@ -76,7 +84,11 @@ func fetchURL(wg *sync.WaitGroup) {
 					}
 					if count == 0 {
 						created_int := currentTimeUnix()
-						new := model.News{URL: link, CreatedInt: created_int.Unix(), Status: 1}
+						new := model.News{
+							URL:          link,
+							CategoryType: config.CategoryType,
+							CreatedInt:   created_int.Unix(),
+							Status:       1}
 						new.Id = primitive.NewObjectID()
 						ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 						_, er := new_collection.InsertOne(ctx, &new)
@@ -103,6 +115,7 @@ func crawlURL(wg *sync.WaitGroup) {
 		projection := bson.M{"_id": 1}
 		sortDesc := bson.M{"_id": 1}
 		new_collection := local_client.Client.Database("docbao").Collection("domain_xe")
+		proxy_collection := local_client.Client.Database("docbao").Collection("proxy")
 
 		paging := paging.NewPaging(
 			new_collection,
@@ -174,6 +187,7 @@ func crawlURL(wg *sync.WaitGroup) {
 						continue
 					}
 					result, er := crwl.CrawlerURL(news.URL)
+
 					u, err := url.Parse(news.URL)
 					if err != nil {
 						log.Println("Error, can not get domain, ", err.Error())
@@ -182,7 +196,7 @@ func crawlURL(wg *sync.WaitGroup) {
 					if er != nil {
 						log.Println("Error, can not crawl content, ", news.Id, er.Error())
 						ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-						_, er := new_collection.UpdateOne(
+						_, err := new_collection.UpdateOne(
 							ctx,
 							bson.M{"_id": news.Id},
 							bson.M{"$set": bson.M{
@@ -190,9 +204,26 @@ func crawlURL(wg *sync.WaitGroup) {
 								"domain":      domain,
 								"date_time":   currentTimeUnix().Format("2006-01-02"),
 								"updated_str": currentTimeUnix().Format("2006-01-02 15:04:05")}})
-						if er != nil {
-							log.Println("Error, can not update status news, ", news.Id, er.Error())
+						if err != nil {
+							log.Println("Error, can not update status news, ", news.Id, err.Error())
 							continue
+						}
+
+						// update status proxy on init request failed
+						proxy_str := strings.Replace(er.Error(), settings.ErrProxyPrefix, "", -1)
+						re := regexp.MustCompile(RegexpProxy)
+
+						proxy_pieces := re.FindAllString(strings.TrimSpace(proxy_str), -1)
+						ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
+						_, er = proxy_collection.UpdateOne(
+							ctx,
+							bson.M{
+								"proxy_ip": strings.TrimSpace(proxy_pieces[1]),
+								"port":     strings.TrimSpace(proxy_pieces[2]),
+								"schema":   strings.TrimSpace(proxy_pieces[0])},
+							bson.M{"$set": bson.M{"status": false}})
+						if er != nil {
+							log.Println("Can not update status proxy, ", er.Error())
 						}
 						continue
 					} else {

@@ -3,7 +3,7 @@ package utils
 import (
 	_ "github.com/go-sql-driver/mysql"
 
-	// "fmt"
+	"fmt"
 
 	"math/rand"
 	"net/url"
@@ -93,6 +93,20 @@ func GetContentFromClass(classes string, doc *goquery.Document) string {
 	}
 	content = CleanDataContent(content)
 	return content
+}
+
+func GetReviewFromClass(classes string, doc *goquery.Document) string {
+
+	result := ""
+	fmt.Println("review type, ", classes)
+	doc.Find(classes).Each(func(i int, s *goquery.Selection) {
+		fmt.Println("found class")
+		tmp := s.Text()
+		fmt.Println(tmp)
+		result += strings.TrimSpace(tmp) + "\n"
+	})
+
+	return result
 }
 
 func GetContentVGTFromClass(classes string, doc *goquery.Document) string {
@@ -192,7 +206,7 @@ func GetDomainName(hostname string) string {
 	return strings.Replace(hostname, "www.", "", -1)
 }
 
-func GetCategoryLink(list_news string, title_news string, doc *goquery.Document, host_name string, domain string) []string {
+func GetCategoryLink(list_news string, title_news string, doc *goquery.Document, host_name string, domain string) ([]string, error) {
 	var links = []string{}
 	doc.Find(list_news).Each(func(i int, s *goquery.Selection) {
 		href := s.Find(title_news)
@@ -205,5 +219,5 @@ func GetCategoryLink(list_news string, title_news string, doc *goquery.Document,
 	})
 	var result = make([]string, len(links))
 	copy(result, links)
-	return result
+	return result, nil
 }

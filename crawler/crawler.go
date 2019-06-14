@@ -2,8 +2,11 @@ package crawler
 
 // implement crawler web data from existing config
 import (
+	"compress/flate"
+	"compress/gzip"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -86,19 +89,37 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 	var result = Crresult{}
 
 	// Continue if Response code is success
-	if res.StatusCode != 200 {
+	if res.StatusCode >= 400 {
 		msg := "status code error: " + " " + strconv.Itoa(res.StatusCode) + " " + res.Status
 		return re, errors.New(msg)
 	}
+
+	var reader io.ReadCloser
+	switch res.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, _ = gzip.NewReader(res.Body)
+	case "deflate":
+		reader = flate.NewReader(res.Body)
+	default:
+		reader = res.Body
+	}
+	defer res.Body.Close()
+	defer reader.Close()
+
 	// Load the HTML document
-	doc, docer := goquery.NewDocumentFromReader(res.Body)
+	doc, docer := goquery.NewDocumentFromReader(reader)
 	if docer != nil {
 		return re, docer
 	}
 
 	// Find the content page
-	result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
-	result.content = utils.StrimSpace(result.content)
+	if ws.CategoryType != "review" {
+		result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
+		result.content = utils.StrimSpace(result.content)
+	} else {
+		result.content = utils.GetReviewFromClass(ws.ContentStruct, doc)
+		result.content = utils.StrimSpace(result.content)
+	}
 
 	result.category_news = utils.GetCategoryFromClass(ws.CategoryStruct, doc)
 	result.category_news = utils.StrimSpace(result.category_news)
@@ -127,7 +148,7 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 			defer res.Body.Close()
 
 			// Continue if Response code is success, process on url parsed
-			if res.StatusCode == 200 {
+			if res.StatusCode < 400 {
 				// Load the HTML document
 				doc, docer := goquery.NewDocumentFromReader(res.Body)
 				// continue to next content_news when can not read, and do nothing
@@ -220,6 +241,7 @@ func (result *Crresult) GetDescription(doc *goquery.Document, description_class 
 func (crw *Crawler) FetchURL() []string {
 	var results = []string{}
 	var links = []string{}
+	var err error
 	crawl_url := ""
 	for domain, config := range crw.WS {
 		if config.PaginateRegex != "" {
@@ -231,25 +253,30 @@ func (crw *Crawler) FetchURL() []string {
 					crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
 				}
 
-				links = crw.crawlSingleLink(crawl_url, domain)
-				results = append(results, links...)
+				links, err = crw.crawlSingleLink(crawl_url, domain)
+				if err == nil {
+					results = append(results, links...)
+				}
 			}
 		} else {
 			crawl_url = config.Url
-			links = crw.crawlSingleLink(crawl_url, domain)
-			results = append(results, links...)
+			links, err = crw.crawlSingleLink(crawl_url, domain)
+			if err == nil {
+				results = append(results, links...)
+			}
 		}
 	}
 	return results
 }
 
 // request for auto get link from category or hompage on web config
-func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig) []string {
+func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig) ([]string, error) {
 	var results = []string{}
 	var links = []string{}
+	// var err error
 	crawl_url := ""
 
-	fmt.Println("config, ", config, domain, config.PaginateRegex)
+	fmt.Println("config, ", config, config.CategoryType, domain, config.PaginateRegex)
 	if config.PaginateRegex != "" {
 		for i := 1; i <= 10; i++ {
 			// break random time before crawl next page
@@ -261,18 +288,24 @@ func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig)
 				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
 			}
 
-			links = crw.crawlSingleLink(crawl_url, domain)
+			links, _ = crw.crawlSingleLink(crawl_url, domain)
 			results = append(results, links...)
+			// if err == nil {
+			// 	results = append(results, links...)
+			// }
 		}
 	} else {
 		crawl_url = config.Url
-		links = crw.crawlSingleLink(crawl_url, domain)
+		links, _ = crw.crawlSingleLink(crawl_url, domain)
 		results = append(results, links...)
+		// if err == nil {
+		// 	results = append(results, links...)
+		// }
 	}
-	return results
+	return results, nil
 }
 
-func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) []string {
+func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) ([]string, error) {
 	var res *http.Response
 	var err error
 
@@ -287,21 +320,35 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) []string {
 
 	if err != nil {
 		log.Println(err.Error(), crawl_link)
-		return make([]string, 0)
+		return make([]string, 0), err
 	}
 	defer res.Body.Close()
 
 	// Continue if Response code is success
-	if res.StatusCode != 200 {
+	if res.StatusCode >= 400 {
 		msg := "status code error: " + " " + res.Status + " " + crawl_link
 		log.Println(msg)
-		return make([]string, 0)
+		return make([]string, 0), err
 	}
+
+	// encode response body with zip type
+	var reader io.ReadCloser
+	switch res.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, _ = gzip.NewReader(res.Body)
+	case "deflate":
+		reader = flate.NewReader(res.Body)
+	default:
+		reader = res.Body
+	}
+	defer res.Body.Close()
+	defer reader.Close()
+
 	// Load the HTML document
-	doc, docer := goquery.NewDocumentFromReader(res.Body)
+	doc, docer := goquery.NewDocumentFromReader(reader)
 	if docer != nil {
 		log.Println("Error, ", docer.Error())
-		return make([]string, 0)
+		return make([]string, 0), docer
 	}
 	return utils.GetCategoryLink(ws.ListNews, ws.TitleNews, doc, referer, domain)
 }
@@ -313,12 +360,4 @@ func getHostFromURL(url_str string) (string, error) {
 		return "", err
 	}
 	return u.Scheme + "://" + u.Host, nil
-}
-
-func (crw *Crawler) FetchURLs(crawl_link string) []string {
-	var results = []string{}
-	var links = []string{}
-	links = crw.crawlSingleLink(crawl_link, "vnexpress.net")
-	results = append(results, links...)
-	return results
 }
