@@ -1,10 +1,6 @@
 package utils
 
 import (
-	_ "github.com/go-sql-driver/mysql"
-
-	"fmt"
-
 	"math/rand"
 	"net/url"
 	"regexp"
@@ -98,11 +94,8 @@ func GetContentFromClass(classes string, doc *goquery.Document) string {
 func GetReviewFromClass(classes string, doc *goquery.Document) string {
 
 	result := ""
-	fmt.Println("review type, ", classes)
 	doc.Find(classes).Each(func(i int, s *goquery.Selection) {
-		fmt.Println("found class")
 		tmp := s.Text()
-		fmt.Println(tmp)
 		result += strings.TrimSpace(tmp) + "\n"
 	})
 
