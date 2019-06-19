@@ -93,13 +93,13 @@ func GetContentFromClass(classes string, doc *goquery.Document) string {
 
 func GetReviewFromClass(classes string, doc *goquery.Document) string {
 
-	result := ""
+	var result strings.Builder
 	doc.Find(classes).Each(func(i int, s *goquery.Selection) {
 		tmp := s.Text()
-		result += strings.TrimSpace(tmp) + "\n"
+		result.WriteString("-" + tmp + "\n")
 	})
 
-	return result
+	return result.String()
 }
 
 func GetContentVGTFromClass(classes string, doc *goquery.Document) string {

@@ -118,7 +118,6 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 		result.content = utils.StrimSpace(result.content)
 	} else {
 		result.content = utils.GetReviewFromClass(ws.ContentStruct, doc)
-		result.content = utils.StrimSpace(result.content)
 	}
 
 	result.category_news = utils.GetCategoryFromClass(ws.CategoryStruct, doc)
