@@ -136,7 +136,7 @@ func (client *Client) SetProxy() Proxy {
 					addr,
 					nil,
 					&net.Dialer{
-						Timeout:   30 * time.Second,
+						Timeout:   1 * time.Minute,
 						KeepAlive: 30 * time.Second})
 				if err != nil {
 					condition = true

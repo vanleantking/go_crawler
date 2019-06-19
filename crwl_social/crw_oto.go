@@ -213,9 +213,8 @@ func crawlURL(wg *sync.WaitGroup) {
 						proxy_str := strings.Replace(er.Error(), settings.ErrProxyPrefix, "", -1)
 						re := regexp.MustCompile(RegexpProxy)
 
-						if re.MatchString(proxy_str) {
-							proxy_pieces := re.FindAllString(strings.TrimSpace(proxy_str), -1)
-							log.Println("Proxy error, ", proxy_pieces, strings.TrimSpace(proxy_str), er.Error())
+						proxy_pieces := re.FindAllString(strings.TrimSpace(proxy_str), -1)
+						if len(proxy_pieces) > 1 {
 							ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 							_, er = proxy_collection.UpdateOne(
 								ctx,
