@@ -10,11 +10,14 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -111,18 +114,40 @@ func (client *Client) SetProxy() Proxy {
 	condition := true
 	var used_proxy Proxy
 	for condition {
+		transport := &http.Transport{
+			DisableCompression:  true,
+			TLSHandshakeTimeout: 10 * time.Second,
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		}
 		var proxyUrl *url.URL
 		proxy_index := rand.Intn(len(ProxyList.ActiveProxy))
 		used_proxy = ProxyList.ActiveProxy[proxy_index]
 		proxyUrl, err := url.Parse(used_proxy.Schema + "://" + used_proxy.ProxyIP + ":" + used_proxy.Port)
 		if err != nil {
 			condition = true
+		} else {
+			transport.Proxy = http.ProxyURL(proxyUrl)
+
+			if used_proxy.Schema == "socks5" {
+				addr := used_proxy.ProxyIP + ":" + used_proxy.Port
+
+				dialer, err := proxy.SOCKS5(
+					"tcp",
+					addr,
+					nil,
+					&net.Dialer{
+						Timeout:   30 * time.Second,
+						KeepAlive: 30 * time.Second})
+				if err != nil {
+					condition = true
+				} else {
+					transport.Dial = dialer.Dial
+				}
+			}
 		}
-		client.client.Transport = &http.Transport{
-			DisableCompression:  true,
-			TLSHandshakeTimeout: 10 * time.Second,
-			Proxy:               http.ProxyURL(proxyUrl),
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}}
+
+		client.client = &http.Client{
+			Transport: transport}
 		return used_proxy
 	}
 	return used_proxy

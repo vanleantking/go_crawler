@@ -63,7 +63,7 @@ func main() {
 	}
 
 	// check select get 100 records proxy
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(10 * time.Second)
 
 	// select records / perpage
 	selectelm, er := webDriver.FindElement(selenium.ByCSSSelector, "select#xpp")
@@ -79,10 +79,10 @@ func main() {
 		return
 	}
 	fmt.Println(optionselm)
-	lastOption := optionselm[4] // get 300 records
-	fmt.Println(lastOption)
+	lastOption := optionselm[3] // get 300 records
+	fmt.Println(lastOption.Text())
 	lastOption.Click()
-	time.Sleep(2 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	// select type anonymous
 	selecteANM, er := webDriver.FindElement(selenium.ByCSSSelector, "select#xf1")
@@ -98,10 +98,10 @@ func main() {
 		return
 	}
 	fmt.Println(optionsANM)
-	anmOption := optionsANM[1] // get 300 records
+	anmOption := optionsANM[1] // get anonymous type
 	fmt.Println(anmOption)
 	anmOption.Click()
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	elements, er := webDriver.FindElement(selenium.ByCSSSelector, "table tbody tr td table")
 	if er != nil {
@@ -132,7 +132,11 @@ func main() {
 				if strings.Contains(strings.ToLower(schema), "https") {
 					schema = "https"
 				} else {
-					schema = "http"
+					if strings.Contains(strings.ToLower(schema), "http") {
+						schema = "http"
+					} else {
+						schema = "socks5"
+					}
 				}
 				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 				count, er := proxy_collection.Count(ctx,
@@ -157,6 +161,18 @@ func main() {
 					_, er = proxy_collection.InsertOne(ctx, &proxy)
 					if er != nil {
 						log.Println("Error, can not insert proxy, ", proxy)
+					}
+				} else {
+					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+					_, er := proxy_collection.UpdateOne(
+						ctx,
+						bson.M{
+							"proxy_ip": pieces_addr[0],
+							"port":     pieces_addr[1]},
+						bson.M{"$set": bson.M{
+							"schema": schema}})
+					if er != nil {
+						log.Println("Error, can not update proxy, ", pieces_addr)
 					}
 				}
 			}
