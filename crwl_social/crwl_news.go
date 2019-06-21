@@ -193,7 +193,7 @@ func crawlURL(wg *sync.WaitGroup) {
 						log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
 						continue
 					}
-					result, er := crwl.CrawlerURL(news.URL)
+					result, er, _ := crwl.GetResultCrwl(news.URL)
 
 					u, err := url.Parse(news.URL)
 					if err != nil {

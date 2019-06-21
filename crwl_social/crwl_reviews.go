@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -57,7 +58,7 @@ func main() {
 
 	last_state := &crawler.LastRun{}
 	fetchReviewsURL(&wg, last_state)
-	crawlURL(&wg, REVIEW)
+	crawlURL(&wg)
 	wg.Wait()
 	log.Println("Success")
 	fmt.Println("Success")
@@ -90,7 +91,7 @@ func fetchReviewsURL(wg *sync.WaitGroup, lastState *crawler.LastRun) {
 							new := model.News{
 								URL:          link,
 								CategoryType: config.CategoryType,
-								Domain:       crwl.WS[domain],
+								Domain:       domain,
 								CreatedInt:   created_int.Unix(),
 								Status:       1}
 							new.Id = primitive.NewObjectID()
@@ -196,63 +197,123 @@ func crawlURL(wg *sync.WaitGroup) {
 						continue
 					}
 
-					result, er := crwl.GetResultCrwl(news.URL)
+					crawl_url := news.URL
+					u, err := url.Parse(crawl_url)
+					if err != nil {
+						log.Println("Error, can not get domain, ", err.Error())
+					}
+					domain := utils.GetDomainName(u.Hostname())
+					ws := crwl.WS[domain]
+					var cmts = map[string]bool{}
 
-					if er != nil {
-						log.Println("Error, can not crawl content, ", news.Id, er.Error())
-						ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-						_, err := new_collection.UpdateOne(
-							ctx,
-							bson.M{"_id": news.Id},
-							bson.M{"$set": bson.M{
-								"status":      4,
-								"date_time":   utils.CurrentTimeUnix().Format("2006-01-02"),
-								"updated_str": utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
-						if err != nil {
-							log.Println("Error, can not update status news, ", news.Id, err.Error())
-							continue
-						}
+					// initialized last state for fisrst run
+					domain_state := crawler.StateDomain{
+						CurrentPage: 0,
+						ErrCode:     0,
+						Status:      true}
 
-						// update status proxy on init request failed
-						proxy_str := strings.Replace(er.Error(), settings.ErrProxyPrefix, "", -1)
-						re := regexp.MustCompile(RegexpProxy)
+					if ws.PaginateRegex != "" {
+						for true {
 
-						proxy_pieces := re.FindAllString(strings.TrimSpace(proxy_str), -1)
-						if len(proxy_pieces) > 1 {
-							ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
-							_, er = proxy_collection.UpdateOne(
-								ctx,
-								bson.M{
-									"proxy_ip": strings.TrimSpace(proxy_pieces[1]),
-									"port":     strings.TrimSpace(proxy_pieces[2]),
-									"schema":   strings.TrimSpace(proxy_pieces[0])},
-								bson.M{"$set": bson.M{"status": false}})
-							if er != nil {
-								log.Println("Can not update status proxy, ", er.Error())
+							// request to limit page of thread <= server return 404
+							if domain_state.ErrCode == 404 {
+								break
+							}
+							if domain_state.ErrCode < 400 && domain_state.Status {
+								domain_state.CurrentPage += 1
+							}
+
+							// update crawl_url when page > 1
+							pcrawl_url := crawl_url
+							if domain_state.CurrentPage > 1 {
+								pcrawl_url = fmt.Sprintf(crawl_url+ws.PaginateRegex, domain_state.CurrentPage)
+							}
+
+							result, err, res_code := crwl.GetResultCrwl(pcrawl_url)
+
+							// the last comment already exist in map string <= repeat crawl
+							// <= server exist to limit page thread but still return 200
+							len_reviews := len(result.Reviews)
+							if len_reviews == 0 {
+								domain_state.Status = false
+								domain_state.ErrCode = res_code
+								continue
+							}
+
+							last_review := result.Reviews[len_reviews-1]
+							if _, ok := cmts[last_review]; ok {
+								break
+							}
+
+							for _, review := range result.Reviews {
+								cmts[review] = true
+							}
+
+							if err != nil {
+								domain_state.Status = false
+								domain_state.ErrCode = res_code
+
+								// update proxy status on response_code > 400
+								if res_code > 400 && res_code != 404 {
+									// update status proxy on init request failed
+									proxy_str := strings.Replace(er.Error(), settings.ErrProxyPrefix, "", -1)
+									re := regexp.MustCompile(RegexpProxy)
+
+									proxy_pieces := re.FindAllString(strings.TrimSpace(proxy_str), -1)
+									if len(proxy_pieces) > 1 {
+										ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+										_, er = proxy_collection.UpdateOne(
+											ctx,
+											bson.M{
+												"proxy_ip": strings.TrimSpace(proxy_pieces[1]),
+												"port":     strings.TrimSpace(proxy_pieces[2]),
+												"schema":   strings.TrimSpace(proxy_pieces[0])},
+											bson.M{"$set": bson.M{"status": false}})
+										if er != nil {
+											log.Println("Can not update status proxy, ", er.Error())
+										}
+									}
+								}
+
+							} else {
+								domain_state.Status = true
+								domain_state.ErrCode = 0
+
+								// for first page, only update content
+								if domain_state.CurrentPage == 1 {
+									ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+									_, er = new_collection.UpdateOne(
+										ctx,
+										bson.M{"_id": news.Id},
+										bson.M{"$set": bson.M{
+											"title":         result.Title,
+											"content":       result.Content,
+											"category_news": result.CategoryNews,
+											"description":   result.Description,
+											"keyword":       result.Keyword,
+											"meta":          result.Meta,
+											"publish_date":  strings.TrimSpace(result.PublishDate),
+											"date_time":     utils.CurrentTimeUnix().Format("2006-01-02"),
+											"updated_str":   utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
+									if er != nil {
+										log.Println("Error on get content, ", news.Id, er.Error())
+									}
+								}
 							}
 						}
+					}
+					list_review := getListReviews(cmts)
+					ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+					_, er = new_collection.UpdateOne(
+						ctx,
+						bson.M{"_id": news.Id},
+						bson.M{"$set": bson.M{
+							"reviews":     list_review,
+							"status":      2,
+							"updated_str": utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
+					if er != nil {
+						log.Println("Error on get content, ", news.Id, er.Error())
 						continue
-					} else {
-						ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-						_, er = new_collection.UpdateOne(
-							ctx,
-							bson.M{"_id": news.Id},
-							bson.M{"$set": bson.M{
-								"title":         result.Title,
-								"content":       result.Content,
-								"category_news": result.CategoryNews,
-								"description":   result.Description,
-								"keyword":       result.Keyword,
-								"meta":          result.Meta,
-								"publish_date":  strings.TrimSpace(result.PublishDate),
-								"status":        2,
-								"date_time":     utils.CurrentTimeUnix().Format("2006-01-02"),
-								"updated_str":   utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
-						if er != nil {
-							log.Println("Error on get content, ", news.Id, er.Error())
-							continue
-						}
-						log.Println("success")
 					}
 				}
 			}()
@@ -260,4 +321,15 @@ func crawlURL(wg *sync.WaitGroup) {
 		<-done
 	}()
 
+}
+
+func getListReviews(cmts map[string]bool) []string {
+	result := make([]string, 0)
+	for k, _ := range cmts {
+		result = append(result, k)
+	}
+
+	var final = make([]string, len(result))
+	copy(final, result)
+	return final
 }
