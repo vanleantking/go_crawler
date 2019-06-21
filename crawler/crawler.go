@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,6 +24,17 @@ var (
 	BreakTime = [10]int64{700, 600, 500, 1000, 10000, 5000, 1500, 800, 3000, 2500}
 )
 
+type LastRun struct {
+	LastState map[string]StateDomain `json:"last_state"`
+}
+
+type StateDomain struct {
+	CurrentPage int  `json:"current_page"`
+	ErrCode     int  `json:"err_code"`
+	Status      bool `json:"status"`
+	LimitPage   int  `json:"limit_page"`
+}
+
 func init() {
 	ConfigWeb = settings.SetConfig()
 }
@@ -40,6 +49,7 @@ type Crresult struct {
 	title         string
 	category_news string
 	keyword       []string
+	reviews       []string
 	description   string
 	meta          map[string]string
 	publish_date  string
@@ -50,6 +60,7 @@ type Result struct {
 	Title        string
 	CategoryNews string
 	Keyword      []string
+	Reviews      []string
 	Description  string
 	Meta         map[string]string
 	PublishDate  string
@@ -113,11 +124,12 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 	}
 
 	// Find the content page
+	result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
 	if ws.CategoryType != "review" {
-		result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
 		result.content = utils.StrimSpace(result.content)
 	} else {
-		result.content = utils.GetReviewFromClass(ws.ContentStruct, doc)
+		result.content = utils.GetContentFromClass(ws.ContentStruct, doc)
+		result.reviews = utils.GetReviewFromClass(ws.CommentsStruct, doc)
 	}
 
 	result.category_news = utils.GetCategoryFromClass(ws.CategoryStruct, doc)
@@ -178,6 +190,7 @@ func (crw *Crawler) CrawlerURL(log_url string) (*Result, error) {
 	result.GetPublishDate(doc, ws.PublishDate)
 	re = &Result{
 		Content:      result.content,
+		Reviews:      result.reviews,
 		Title:        result.title,
 		CategoryNews: result.category_news,
 		Keyword:      result.keyword,
@@ -249,17 +262,17 @@ func (crw *Crawler) FetchURL() []string {
 				time.Sleep(10 * time.Second)
 				crawl_url = config.Url
 				if i > 1 {
-					crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
+					crawl_url = fmt.Sprintf(config.Url+config.PaginateRegex, i)
 				}
 
-				links, err = crw.crawlSingleLink(crawl_url, domain)
+				links, err, _ = crw.crawlSingleLink(crawl_url, domain)
 				if err == nil {
 					results = append(results, links...)
 				}
 			}
 		} else {
 			crawl_url = config.Url
-			links, err = crw.crawlSingleLink(crawl_url, domain)
+			links, err, _ = crw.crawlSingleLink(crawl_url, domain)
 			if err == nil {
 				results = append(results, links...)
 			}
@@ -269,42 +282,64 @@ func (crw *Crawler) FetchURL() []string {
 }
 
 // request for auto get link from category or hompage on web config
-func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig) ([]string, error) {
-	var results = []string{}
+func (crw *Crawler) FetchSingleURL(domain string, config settings.WebsiteConfig,
+	lastState *LastRun, limit int) ([]string, error) {
+
 	var links = []string{}
-	// var err error
+	var err error
+	var res = 0
 	crawl_url := ""
 
-	fmt.Println("config, ", config, config.CategoryType, domain, config.PaginateRegex)
-	if config.PaginateRegex != "" {
-		for i := 1; i <= 10; i++ {
-			// break random time before crawl next page
-			break_time := rand.Intn(len(BreakTime))
-			duration := time.Duration(BreakTime[break_time]) * time.Microsecond
-			time.Sleep(duration)
-			crawl_url = config.Url
-			if i > 1 {
-				crawl_url = config.Url + config.PaginateRegex + strconv.Itoa(i)
-			}
+	// initialized last state for fisrst run
+	domain_state := StateDomain{
+		CurrentPage: 1,
+		LimitPage:   limit,
+		ErrCode:     0}
 
-			links, _ = crw.crawlSingleLink(crawl_url, domain)
-			results = append(results, links...)
-			// if err == nil {
-			// 	results = append(results, links...)
-			// }
+	if lastState != nil {
+		domain_state = lastState.LastState[domain]
+	}
+
+	if config.PaginateRegex != "" {
+		crawl_url = config.Url
+		if domain_state.ErrCode == 404 {
+			domain_state.CurrentPage = 1
+		}
+
+		// continue crawl if not exceed limit and error_code != 404 (page not found)
+		if domain_state.CurrentPage > 1 && domain_state.CurrentPage <= limit && domain_state.ErrCode != 404 {
+			crawl_url = fmt.Sprintf(config.Url+config.PaginateRegex, domain_state.CurrentPage)
+		}
+
+		links, err, res = crw.crawlSingleLink(crawl_url, domain)
+		if err != nil {
+			domain_state.Status = false
+			if res != 0 {
+				domain_state.ErrCode = res
+			}
+		} else {
+			domain_state.Status = true
+			domain_state.CurrentPage += 1
+			domain_state.ErrCode = 0
 		}
 	} else {
 		crawl_url = config.Url
-		links, _ = crw.crawlSingleLink(crawl_url, domain)
-		results = append(results, links...)
-		// if err == nil {
-		// 	results = append(results, links...)
-		// }
+		links, err, res = crw.crawlSingleLink(crawl_url, domain)
+		if err != nil {
+			domain_state.Status = false
+			if res != 0 {
+				domain_state.ErrCode = res
+			}
+		} else {
+			domain_state.Status = true
+			domain_state.ErrCode = 0
+		}
 	}
-	return results, nil
+
+	return links, nil
 }
 
-func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) ([]string, error) {
+func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) ([]string, error, int) {
 	var res *http.Response
 	var err error
 
@@ -318,16 +353,14 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) ([]string,
 	}
 
 	if err != nil {
-		log.Println(err.Error(), crawl_link)
-		return make([]string, 0), err
+		return make([]string, 0), err, 0
 	}
 	defer res.Body.Close()
 
 	// Continue if Response code is success
 	if res.StatusCode >= 400 {
 		msg := "status code error: " + " " + res.Status + " " + crawl_link
-		log.Println(msg)
-		return make([]string, 0), err
+		return make([]string, 0), errors.New(msg), res.StatusCode
 	}
 
 	// encode response body with zip type
@@ -346,10 +379,11 @@ func (crw *Crawler) crawlSingleLink(crawl_link string, domain string) ([]string,
 	// Load the HTML document
 	doc, docer := goquery.NewDocumentFromReader(reader)
 	if docer != nil {
-		log.Println("Error, ", docer.Error())
-		return make([]string, 0), docer
+		return make([]string, 0), docer, 0
 	}
-	return utils.GetCategoryLink(ws.ListNews, ws.TitleNews, doc, referer, domain)
+
+	links, err := utils.GetCategoryLink(ws.ListNews, ws.TitleNews, doc, referer, domain)
+	return links, err, 0
 }
 
 func getHostFromURL(url_str string) (string, error) {

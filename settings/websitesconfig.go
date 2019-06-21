@@ -18,6 +18,7 @@ type WebsiteConfig struct {
 	CategoryStruct string `json:"category_class"`
 	Description    string `json:"meta_description"`
 	PublishDate    string `json:"publish_date"`
+	CommentsStruct string `json:"comments_class"`
 	Keywords       string `json:"meta_keyword"`
 	SpecialHeader  bool   `json:"special_header"`
 	Category       string `json:"category"`

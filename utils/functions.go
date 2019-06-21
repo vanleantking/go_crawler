@@ -91,15 +91,18 @@ func GetContentFromClass(classes string, doc *goquery.Document) string {
 	return content
 }
 
-func GetReviewFromClass(classes string, doc *goquery.Document) string {
+func GetReviewFromClass(classes string, doc *goquery.Document) []string {
 
-	var result strings.Builder
+	var result = []string{}
 	doc.Find(classes).Each(func(i int, s *goquery.Selection) {
-		tmp := s.Text()
-		result.WriteString("-" + tmp + "\n")
+		tmp := "-" + StrimSpace(s.Text())
+		result = append(result, tmp)
 	})
 
-	return result.String()
+	var final = make([]string, len(result))
+	copy(final, result)
+
+	return final
 }
 
 func GetContentVGTFromClass(classes string, doc *goquery.Document) string {
@@ -213,4 +216,12 @@ func GetCategoryLink(list_news string, title_news string, doc *goquery.Document,
 	var result = make([]string, len(links))
 	copy(result, links)
 	return result, nil
+}
+
+func CurrentTimeUnix() time.Time {
+	//init the loc
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+
+	//set timezone,
+	return time.Now().In(loc)
 }
