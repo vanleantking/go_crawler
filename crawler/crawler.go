@@ -369,5 +369,5 @@ func getHostFromURL(url_str string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Scheme + "://" + u.Host, nil
+	return u.Scheme + "://" + u.Host + "/", nil
 }
