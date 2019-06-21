@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -75,6 +74,7 @@ func fetchReviewsURL(wg *sync.WaitGroup, lastState *crawler.LastRun) {
 		for {
 			for domain, config := range crwl.WS {
 				if config.CategoryType == REVIEW {
+					// crawl category - page (pagination)
 					links, _ := crwl.FetchSingleURL(domain, config, lastState, PAGE_LIMIT)
 					for _, link := range links {
 						ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
@@ -90,6 +90,7 @@ func fetchReviewsURL(wg *sync.WaitGroup, lastState *crawler.LastRun) {
 							new := model.News{
 								URL:          link,
 								CategoryType: config.CategoryType,
+								Domain:       crwl.WS[domain],
 								CreatedInt:   created_int.Unix(),
 								Status:       1}
 							new.Id = primitive.NewObjectID()
@@ -112,6 +113,7 @@ func fetchReviewsURL(wg *sync.WaitGroup, lastState *crawler.LastRun) {
 	}()
 }
 
+// crawl a thread/link - include pagination
 func crawlURL(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
@@ -193,13 +195,9 @@ func crawlURL(wg *sync.WaitGroup) {
 						log.Println("----------------Error-------------: can not get decode go_cookies models", err.Error())
 						continue
 					}
-					result, er := crwl.CrawlerURL(news.URL)
 
-					u, err := url.Parse(news.URL)
-					if err != nil {
-						log.Println("Error, can not get domain, ", err.Error())
-					}
-					domain := utils.GetDomainName(u.Hostname())
+					result, er := crwl.GetResultCrwl(news.URL)
+
 					if er != nil {
 						log.Println("Error, can not crawl content, ", news.Id, er.Error())
 						ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -208,7 +206,6 @@ func crawlURL(wg *sync.WaitGroup) {
 							bson.M{"_id": news.Id},
 							bson.M{"$set": bson.M{
 								"status":      4,
-								"domain":      domain,
 								"date_time":   utils.CurrentTimeUnix().Format("2006-01-02"),
 								"updated_str": utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
 						if err != nil {
@@ -248,7 +245,6 @@ func crawlURL(wg *sync.WaitGroup) {
 								"keyword":       result.Keyword,
 								"meta":          result.Meta,
 								"publish_date":  strings.TrimSpace(result.PublishDate),
-								"domain":        domain,
 								"status":        2,
 								"date_time":     utils.CurrentTimeUnix().Format("2006-01-02"),
 								"updated_str":   utils.CurrentTimeUnix().Format("2006-01-02 15:04:05")}})
