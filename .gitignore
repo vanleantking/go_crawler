@@ -6,3 +6,4 @@ crwl_news/utils/constant.go
 crwl_news/process_words/wordprocess/tri-grams.txt
 crwl_news/process_words/wordprocess/vnmstopwords.txt
 crwl_news/process_words/wordprocess/bi-grams.txt
+crwl_social/TODO
