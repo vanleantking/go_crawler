@@ -66,7 +66,7 @@ func main() {
 	time.Sleep(10 * time.Second)
 
 	// select records / perpage
-	selectelm, er := webDriver.FindElement(selenium.ByCSSSelector, "select#xpp")
+	selectelm, er := webDriver.FindElement(selenium.ByCSSSelector, "#xpp")
 	if er != nil {
 		log.Println("eror on get all value, ", er.Error())
 		return
@@ -85,7 +85,7 @@ func main() {
 	time.Sleep(20 * time.Second)
 
 	// select type anonymous
-	selecteANM, er := webDriver.FindElement(selenium.ByCSSSelector, "select#xf1")
+	selecteANM, er := webDriver.FindElement(selenium.ByCSSSelector, "#xf1")
 	if er != nil {
 		log.Println("eror on get all value, ", er.Error())
 		return
