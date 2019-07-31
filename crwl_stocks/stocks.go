@@ -34,7 +34,7 @@ type Result struct {
 var (
 	currentDate = time.Now()
 
-	// fromDate     = "2019-05-26"
+	fromDate     = "2019-05-26"
 	DateRegexp   = `\d{4,}`
 	local_client *utils.ClientMGO
 	DataTabs     = []string{
@@ -45,6 +45,12 @@ var (
 		"thong-ke-gia",
 		"thong-ke-lenh",
 		"gd-khop-lenh-nn"}
+	header = map[string]string{
+		"Cache-Control":             "max-age=0",
+		"Accept":                    "*/*",
+		"AcceptLanguage":            "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
+		"Method":                    "GET",
+		"Upgrade-Insecure-Requests": "1"}
 
 	result = readData()
 	Stocks map[string][]utils.StockInfo
@@ -90,7 +96,7 @@ func main() {
 	//STOCK_PARAMETER {page, pageSize, catID, stockID, fromDate, toDate}
 	for true {
 		toDate := fmt.Sprintf("%d-%d-%d", currentDate.Year(), currentDate.Month(), currentDate.Day())
-		fromDate := toDate
+		// fromDate := toDate
 		getPriceDayInfo(fromDate, toDate, &wg)
 		getOrderMatchInfo(fromDate, toDate, &wg)
 		getOrderReservationInfo(fromDate, toDate, &wg)
@@ -109,13 +115,6 @@ func getPriceDayInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 		// initial client custom request
 		crClient := settings.NewClient()
 		priceday_collection := local_client.Client.Database("new_ck").Collection("price_day")
-		header := map[string]string{
-			"Accept":                    "*/*",
-			"AcceptLanguage":            "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-			"X-Requested-With":          "XMLHttpRequest",
-			"Pragma":                    "no-cache",
-			"Method":                    "GET",
-			"Upgrade-Insecure-Requests": "1"}
 
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
@@ -134,17 +133,20 @@ func getPriceDayInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					defer resp.Body.Close()
 					body, err := ioutil.ReadAll(resp.Body)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					var result []interface{}
 					err = json.Unmarshal(body, &result)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 
 					for key, re := range result {
@@ -206,7 +208,7 @@ func getPriceDayInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 												log.Println("Error on insert last_day, ", er, priceDayInterface)
 											}
 										} else {
-											break
+											continue
 										}
 									}
 								}
@@ -219,7 +221,7 @@ func getPriceDayInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 								for i := 0; i < tmp_slice.Len(); i++ {
 									priceDayInterface := tmp_slice.Index(i).Interface().(float64)
 									maxPage = int(priceDayInterface)
-									break
+									continue
 								}
 							}
 						}
@@ -237,13 +239,7 @@ func getOrderMatchInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 		defer wg.Done()
 
 		matchorder_collection := local_client.Client.Database("new_ck").Collection("match_order")
-		header := map[string]string{
-			"Accept":                    "*/*",
-			"AcceptLanguage":            "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-			"X-Requested-With":          "XMLHttpRequest",
-			"Pragma":                    "no-cache",
-			"Method":                    "GET",
-			"Upgrade-Insecure-Requests": "1"}
+
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
 				// initial client custom request
@@ -263,17 +259,20 @@ func getOrderMatchInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					defer resp.Body.Close()
 					body, err := ioutil.ReadAll(resp.Body)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					var result []interface{}
 					err = json.Unmarshal(body, &result)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 
 					for key, re := range result {
@@ -344,7 +343,7 @@ func getOrderMatchInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 												log.Println("Error on insert order_match, ", er, orderMatchInterface)
 											}
 										} else {
-											break
+											continue
 										}
 									}
 								}
@@ -357,7 +356,7 @@ func getOrderMatchInfo(fromDate string, toDate string, wg *sync.WaitGroup) {
 								for i := 0; i < tmp_slice.Len(); i++ {
 									priceDayInterface := tmp_slice.Index(i).Interface().(float64)
 									maxPage = int(priceDayInterface)
-									break
+									continue
 								}
 							}
 						}
@@ -374,13 +373,6 @@ func getOrderReservationInfo(fromDate string, toDate string, wg *sync.WaitGroup)
 	go func() {
 		defer wg.Done()
 		reservationorder_collection := local_client.Client.Database("new_ck").Collection("reservation_order")
-		header := map[string]string{
-			"Accept":                    "*/*",
-			"AcceptLanguage":            "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-			"X-Requested-With":          "XMLHttpRequest",
-			"Pragma":                    "no-cache",
-			"Method":                    "GET",
-			"Upgrade-Insecure-Requests": "1"}
 		for _, stockInfos := range Stocks {
 			for _, stockInfo := range stockInfos {
 				// initial client custom request
@@ -398,17 +390,20 @@ func getOrderReservationInfo(fromDate string, toDate string, wg *sync.WaitGroup)
 
 					resp, err := crClient.InitCustomRequest(log_url, header)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					defer resp.Body.Close()
 					body, err := ioutil.ReadAll(resp.Body)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 					var result []interface{}
 					err = json.Unmarshal(body, &result)
 					if err != nil {
-						fmt.Println(err.Error())
+						log.Println(err.Error(), stockInfo, fromDate, toDate)
+						continue
 					}
 
 					for key, re := range result {
@@ -466,7 +461,7 @@ func getOrderReservationInfo(fromDate string, toDate string, wg *sync.WaitGroup)
 												log.Println("Error on insert order_match, ", er, orderReserveInterface)
 											}
 										} else {
-											break
+											continue
 										}
 									}
 								}
