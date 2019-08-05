@@ -22,37 +22,44 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-type UserAgent struct {
-	Name string
-}
-
+// Proxy represent proxy component
 type Proxy struct {
 	ProxyIP string `json:"proxy_ip"`
 	Port    string `json:"port"`
 	Schema  string `json:"schema"`
 }
 
+// Proxies list of proxy read from file
 type Proxies struct {
 	ActiveProxy []Proxy `json:"active_proxies"`
 }
 
+// Response response instance http
 type Response struct {
 	*http.Response
 }
 
 const (
-	ErrProxyPrefix = "Error, failed on connect proxy, "
+	ErrProxyPrefix          = "Error, failed on connect proxy, "
+	DefaultAccept           = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3"
+	DefaultAcceptLanguage   = "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6"
+	DefaultAcceptEncoding   = "gzip,deflate,sdch"
+	DefaultInsecCureReqeust = "1"
+	DefaultCacheControl     = "max-age=0"
+	DefaultConnection       = "keep-alive"
 )
 
-// Custom new request type for setting header on http.Request
+// CrRequest Custom new request type for setting header on http.Request
 type CrRequest struct {
 	*http.Request
 }
 
+// ToString return proxy as string
 func (proxy *Proxy) ToString() string {
 	return proxy.Schema + "://" + proxy.ProxyIP + ":" + proxy.Port
 }
 
+// SetHeader set header request from Header
 func (cr *CrRequest) SetHeader(header Header) {
 	cr.Request.Header.Add("method", header.Method)
 	cr.Request.Header.Add("user-agent", header.UserAgent)
@@ -68,6 +75,7 @@ func (cr *CrRequest) SetHeader(header Header) {
 	}
 }
 
+// Header header instance on request
 type Header struct {
 	UserAgent              string
 	Referrer               string
@@ -84,10 +92,12 @@ type Header struct {
 	Host                   string
 }
 
+// SetUserAgent set user_agent on header
 func (header *Header) SetUserAgent(ua string) {
 	header.UserAgent = ua
 }
 
+// Client represent client http
 type Client struct {
 	client *http.Client
 }
@@ -105,33 +115,33 @@ func (client *Client) newRequest(method, urlStr string, body io.Reader) (*CrRequ
 	}
 	// defer req.Body.Close()
 
-	cr_request := &CrRequest{Request: req}
+	request := &CrRequest{Request: req}
 
-	return cr_request, nil
+	return request, nil
 }
 
-// SetProxy setting proxy on http, https or socks5 proxy
+// SetProxy setting proxy from list proxy read from file on http, https or socks5 proxy
 func (client *Client) SetProxy() Proxy {
 
 	condition := true
-	var used_proxy Proxy
+	var usedProxy Proxy
 	for condition {
 		transport := &http.Transport{
 			DisableCompression:  true,
 			TLSHandshakeTimeout: 10 * time.Second,
 			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		}
-		var proxyUrl *url.URL
-		proxy_index := rand.Intn(len(ProxyList.ActiveProxy))
-		used_proxy = ProxyList.ActiveProxy[proxy_index]
-		proxyUrl, err := url.Parse(used_proxy.Schema + "://" + used_proxy.ProxyIP + ":" + used_proxy.Port)
+		var proxyURL *url.URL
+		proxyIndex := rand.Intn(len(ProxyList.ActiveProxy))
+		usedProxy = ProxyList.ActiveProxy[proxyIndex]
+		proxyURL, err := url.Parse(usedProxy.Schema + "://" + usedProxy.ProxyIP + ":" + usedProxy.Port)
 		if err != nil {
 			condition = true
 		} else {
-			transport.Proxy = http.ProxyURL(proxyUrl)
+			transport.Proxy = http.ProxyURL(proxyURL)
 
-			if used_proxy.Schema == "socks5" {
-				addr := used_proxy.ProxyIP + ":" + used_proxy.Port
+			if usedProxy.Schema == "socks5" {
+				addr := usedProxy.ProxyIP + ":" + usedProxy.Port
 
 				dialer, err := proxy.SOCKS5(
 					"tcp",
@@ -150,30 +160,30 @@ func (client *Client) SetProxy() Proxy {
 
 		client.client = &http.Client{
 			Transport: transport}
-		return used_proxy
+		return usedProxy
 	}
-	return used_proxy
+	return usedProxy
 }
 
 // Do a request with re-try connect proxy with 10 time
-func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
+func (client *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	// retrieve another proxy 3 time request when failed
 	flag := 0
 	var proxy Proxy
-	re_error := errors.New("")
+	erRe := errors.New("")
 	for flag < 10 {
-		resp, err := c.client.Do(req)
+		resp, err := client.client.Do(req)
 		if err == nil {
 			return resp, err
 
 		}
 		flag++
-		re_error = err
-		proxy = c.SetProxy()
+		erRe = err
+		proxy = client.SetProxy()
 	}
 
 	msg := ErrProxyPrefix + proxy.ToString()
-	log.Println(msg, re_error.Error())
+	log.Println(msg, erRe.Error())
 	return nil, errors.New(msg)
 }
 
@@ -192,40 +202,41 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 
 	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 
-	cr_request, er := client.newRequest(header.Method, url, nil)
+	csRequest, er := client.newRequest(header.Method, url, nil)
 
 	if er != nil {
 		panic(er.Error())
 	}
-	cr_request.SetHeader(header)
+	csRequest.SetHeader(header)
 
-	return client.Do(cr_request.Request, nil)
+	return client.Do(csRequest.Request, nil)
 }
 
 // InitRequest2 init request on custom referer
-func (client *Client) InitRequest2(url string, host_name string, domain string) (*http.Response, error) {
+func (client *Client) InitRequest2(url string, hostname string, domain string) (*http.Response, error) {
 	header := Header{
-		Referrer:       host_name,
-		Accept:         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
-		AcceptLanguage: "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
+		Referrer:       hostname,
+		Accept:         DefaultAccept,
+		AcceptLanguage: DefaultAcceptLanguage,
+		AcceptEncoding: DefaultAcceptEncoding,
 		// Pragma:                 "no-cache",
 		// Method:                 "GET",
 		// ContentType:            "text/html; charset=utf-8",
-		UpdateInsecCureRequest: "1",
-		CacheControl:           "max-age=0",
-		Connection:             "keep-alive",
+		UpdateInsecCureRequest: DefaultInsecCureReqeust,
+		CacheControl:           DefaultCacheControl,
+		Connection:             DefaultConnection,
 		Host:                   domain}
 
 	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 
-	cr_request, er := client.newRequest(header.Method, url, nil)
+	csRequest, er := client.newRequest(header.Method, url, nil)
 
 	if er != nil {
 		panic(er.Error())
 	}
-	cr_request.SetHeader(header)
+	csRequest.SetHeader(header)
 
-	return client.Do(cr_request.Request, nil)
+	return client.Do(csRequest.Request, nil)
 }
 
 func newResponse(r *http.Response) *Response {
@@ -240,21 +251,21 @@ func (client *Client) InitCustomRequest(url string, cHeader map[string]string) (
 	if cHeader["Method"] == "" {
 		cHeader["Method"] = "GET"
 	}
-	cr_request, er := client.newRequest(cHeader["Method"], url, nil)
+	csRequest, er := client.newRequest(cHeader["Method"], url, nil)
 
 	if er != nil {
 		return &http.Response{}, er
 	}
-	cr_request.SetCustomeHeader(cHeader)
+	csRequest.SetCustomeHeader(cHeader)
 
-	return client.Do(cr_request.Request, nil)
+	return client.Do(csRequest.Request, nil)
 }
 
 // SetCustomeHeader set header custome format is map[string]string
-func (crRequest *CrRequest) SetCustomeHeader(header map[string]string) {
+func (cr *CrRequest) SetCustomeHeader(header map[string]string) {
 	for key, value := range header {
 		if strings.TrimSpace(key) != "" {
-			crRequest.Request.Header.Add(key, value)
+			cr.Request.Header.Add(key, value)
 		}
 	}
 }
