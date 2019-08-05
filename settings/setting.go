@@ -142,7 +142,6 @@ func (client *Client) SetProxy() Proxy {
 
 			if usedProxy.Schema == "socks5" {
 				addr := usedProxy.ProxyIP + ":" + usedProxy.Port
-
 				dialer, err := proxy.SOCKS5(
 					"tcp",
 					addr,

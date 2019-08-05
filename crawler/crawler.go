@@ -273,7 +273,7 @@ func (crw *Crawler) getAllLinks(crawl_link string) ([]string, error, int) {
 	return links, err, 0
 }
 
-// get content from link
+// GetResultCrwl return result, error and error_code
 func (crw *Crawler) GetResultCrwl(log_url string) (*Result, error, int) {
 	var res *http.Response
 	var err error
@@ -323,7 +323,7 @@ func (crw *Crawler) GetResultCrwl(log_url string) (*Result, error, int) {
 
 		// initial request error
 		if err != nil {
-			return re, err, res.StatusCode
+			return re, err, 0
 		}
 		defer res.Body.Close()
 

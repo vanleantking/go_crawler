@@ -65,6 +65,24 @@ func main() {
 	// check select get 100 records proxy
 	time.Sleep(10 * time.Second)
 
+	// select type anonymous
+	selecteANM, er := webDriver.FindElement(selenium.ByCSSSelector, "#xf1")
+	if er != nil {
+		log.Println("eror on get all value, ", er.Error())
+		return
+	}
+
+	optionsANM, er := selecteANM.FindElements(selenium.ByTagName, "option")
+	if er != nil {
+		log.Println("eror on get all value, ", er.Error())
+		return
+	}
+	fmt.Println(optionsANM)
+	anmOption := optionsANM[1] // get anonymous type
+	fmt.Println(anmOption)
+	anmOption.Click()
+	time.Sleep(10 * time.Second)
+
 	// select records / perpage
 	selectelm, er := webDriver.FindElement(selenium.ByCSSSelector, "#xpp")
 	if er != nil {
@@ -83,25 +101,6 @@ func main() {
 	fmt.Println(lastOption.Text())
 	lastOption.Click()
 	time.Sleep(20 * time.Second)
-
-	// select type anonymous
-	selecteANM, er := webDriver.FindElement(selenium.ByCSSSelector, "#xf1")
-	if er != nil {
-		log.Println("eror on get all value, ", er.Error())
-		return
-	}
-	fmt.Println(selectelm)
-
-	optionsANM, er := selecteANM.FindElements(selenium.ByTagName, "option")
-	if er != nil {
-		log.Println("eror on get all value, ", er.Error())
-		return
-	}
-	fmt.Println(optionsANM)
-	anmOption := optionsANM[1] // get anonymous type
-	fmt.Println(anmOption)
-	anmOption.Click()
-	time.Sleep(10 * time.Second)
 
 	elements, er := webDriver.FindElement(selenium.ByCSSSelector, "table tbody tr td table")
 	if er != nil {
