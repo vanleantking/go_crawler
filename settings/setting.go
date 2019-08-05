@@ -92,7 +92,8 @@ type Client struct {
 	client *http.Client
 }
 
-func (client *Client) NewRequest(method, urlStr string, body io.Reader) (*CrRequest, error) {
+// NewRequest make new request return request type client
+func (client *Client) newRequest(method, urlStr string, body io.Reader) (*CrRequest, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -109,6 +110,7 @@ func (client *Client) NewRequest(method, urlStr string, body io.Reader) (*CrRequ
 	return cr_request, nil
 }
 
+// SetProxy setting proxy on http, https or socks5 proxy
 func (client *Client) SetProxy() Proxy {
 
 	condition := true
@@ -153,6 +155,7 @@ func (client *Client) SetProxy() Proxy {
 	return used_proxy
 }
 
+// Do a request with re-try connect proxy with 10 time
 func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	// retrieve another proxy 3 time request when failed
 	flag := 0
@@ -174,6 +177,7 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	return nil, errors.New(msg)
 }
 
+// InitRequest init request on fix referer
 func (client *Client) InitRequest(url string) (*http.Response, error) {
 	header := Header{
 		Referrer:       "https://www.google.com.vn/",
@@ -188,7 +192,7 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 
 	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 
-	cr_request, er := client.NewRequest(header.Method, url, nil)
+	cr_request, er := client.newRequest(header.Method, url, nil)
 
 	if er != nil {
 		panic(er.Error())
@@ -198,6 +202,7 @@ func (client *Client) InitRequest(url string) (*http.Response, error) {
 	return client.Do(cr_request.Request, nil)
 }
 
+// InitRequest2 init request on custom referer
 func (client *Client) InitRequest2(url string, host_name string, domain string) (*http.Response, error) {
 	header := Header{
 		Referrer:       host_name,
@@ -213,7 +218,7 @@ func (client *Client) InitRequest2(url string, host_name string, domain string) 
 
 	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 
-	cr_request, er := client.NewRequest(header.Method, url, nil)
+	cr_request, er := client.newRequest(header.Method, url, nil)
 
 	if er != nil {
 		panic(er.Error())
@@ -228,13 +233,14 @@ func newResponse(r *http.Response) *Response {
 	return response
 }
 
+// InitCustomRequest init new request for client on custome header
 func (client *Client) InitCustomRequest(url string, cHeader map[string]string) (*http.Response, error) {
 
 	cHeader["User-Agent"] = UserAgents[rand.Intn(len(UserAgents))]
 	if cHeader["Method"] == "" {
 		cHeader["Method"] = "GET"
 	}
-	cr_request, er := client.NewRequest(cHeader["Method"], url, nil)
+	cr_request, er := client.newRequest(cHeader["Method"], url, nil)
 
 	if er != nil {
 		return &http.Response{}, er
@@ -244,7 +250,7 @@ func (client *Client) InitCustomRequest(url string, cHeader map[string]string) (
 	return client.Do(cr_request.Request, nil)
 }
 
-// header custome format is map[string]string
+// SetCustomeHeader set header custome format is map[string]string
 func (crRequest *CrRequest) SetCustomeHeader(header map[string]string) {
 	for key, value := range header {
 		if strings.TrimSpace(key) != "" {
@@ -253,7 +259,7 @@ func (crRequest *CrRequest) SetCustomeHeader(header map[string]string) {
 	}
 }
 
-// setting client with cookie jar
+// NewClient setting client with cookie jar
 func NewClient() *Client {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	httpClient := http.Client{Timeout: HTTPTIMEOUT, Transport: nil, CheckRedirect: nil, Jar: jar}
