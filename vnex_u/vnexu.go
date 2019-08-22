@@ -130,7 +130,12 @@ func main() {
 				}
 			}
 
-			time.Sleep(30 * time.Minute)
+			time.Sleep(10 * time.Minute)
+			_, er = webDriver.NewSession()
+			if er != nil {
+				log.Println("Can not initial new session, ", er.Error())
+				continue
+			}
 		}
 		done <- true
 	}()
@@ -138,16 +143,6 @@ func main() {
 	for i := 0; i < 3; i++ {
 		go func() {
 			for linkCrwl := range linkChan {
-				var detailDriver selenium.WebDriver
-				caps := settings.SetChomeCapabilities()
-
-				// connect to selenium Standalone alone (run on java jar package)
-				if detailDriver, er = settings.InitNewRemote(caps, utils.STANDALONESERVER); er != nil {
-					fmt.Printf("Failed to open session: %s\n", er)
-					continue
-				}
-				defer detailDriver.Quit()
-
 				ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 				urlParse, _ := url.Parse(linkCrwl.Link)
 				originalLink := urlParse.Scheme + "://" + urlParse.Host + urlParse.Path
@@ -164,36 +159,11 @@ func main() {
 					continue
 				}
 
-				if count > int64(0) {
-					fmt.Println("Exist, ")
+				if count > 0 {
 					continue
 				}
 
-				// client initial request on original url
-				er = detailDriver.Get(linkCrwl.Link)
-				if er != nil {
-					log.Println("Error on request link, ", er.Error(), linkCrwl.Link)
-				}
-
-				// pagination
-				paginationsE, er := detailDriver.FindElements(
-					selenium.ByCSSSelector,
-					"#pagination.pagination a")
-				if er != nil {
-					crawlerComment(detailDriver, linkCrwl)
-				} else {
-					if len(paginationsE) > 0 {
-						maxLengthE := paginationsE[len(paginationsE)-2]
-						turnRight := paginationsE[len(paginationsE)-1]
-						maxLengthText, _ := maxLengthE.Text()
-						maxLength, _ := strconv.Atoi(maxLengthText)
-						for i := 0; i < maxLength-1; i++ {
-							turnRight.Click()
-							time.Sleep(500 * time.Millisecond)
-							crawlerComment(detailDriver, linkCrwl)
-						}
-					}
-				}
+				initRequest(linkCrwl)
 			}
 		}()
 	}
@@ -202,22 +172,72 @@ func main() {
 
 // insert new link and user vnexpress
 // extract list users from each page_url
-func crawlerComment(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
+func initRequest(linkCrwl LinkCrwl) {
+	var detailDriver selenium.WebDriver
+	var er error
+	caps := settings.SetChomeCapabilities()
+
+	// connect to selenium Standalone alone (run on java jar package)
+	if detailDriver, er = settings.InitNewRemote(caps, utils.STANDALONESERVER); er != nil {
+		fmt.Printf("Failed to open session: %s\n", er)
+		return
+	}
+	defer detailDriver.Quit()
+	// client initial request on original url
+	er = detailDriver.Get(linkCrwl.Link)
+	if er != nil {
+		log.Println("Error on request link, ", er.Error(), linkCrwl.Link)
+		return
+	}
 	fmt.Println("--------------link crawl info receiver channel--------, ", linkCrwl)
-	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
-
-	var allComments = make(map[string]structs.DetailComment)
-
 	// click view more comment button
 	viewMoreE, er := detailDriver.FindElement(
 		selenium.ByCSSSelector,
 		".view_more_coment")
 	if er == nil {
 		viewMoreE.Click()
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
+	// pagination
+	paginationsE, er := detailDriver.FindElements(
+		selenium.ByCSSSelector,
+		"#pagination.pagination a")
+	fmt.Println("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz, ",
+		paginationsE,
+		er,
+		len(paginationsE),
+		linkCrwl.Link)
+	if er != nil {
+		log.Println("Error, can not get pagination, ")
+	} else {
+		if len(paginationsE) == 0 {
+			getDetailCmt(detailDriver, linkCrwl)
+		} else {
+			maxLengthE := paginationsE[len(paginationsE)-2]
+			turnRight := paginationsE[len(paginationsE)-1]
+			trt, _ := turnRight.Text()
+			maxLengthText, _ := maxLengthE.Text()
+			maxLength, _ := strconv.Atoi(maxLengthText)
+			fmt.Println("rrrrrrrrrrrrrrrrrrrrrr, ",
+				maxLengthText,
+				trt,
+				len(paginationsE),
+				len(paginationsE)-2,
+				linkCrwl.Link)
+			for i := 0; i < maxLength-1; i++ {
+				turnRight.Click()
+				time.Sleep(100 * time.Millisecond)
+				getDetailCmt(detailDriver, linkCrwl)
+			}
+		}
+	}
+}
+
+func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
+	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
+	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
+	var allComments = make(map[string]structs.DetailComment)
 	// click view full comment
 	viewFullCmtsE, er := detailDriver.FindElements(
 		selenium.ByCSSSelector,
