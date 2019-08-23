@@ -212,7 +212,7 @@ func initRequest(linkCrwl LinkCrwl) {
 		log.Println("Error, can not get pagination, ")
 	} else {
 		if len(paginationsE) == 0 {
-			getDetailCmt(detailDriver, linkCrwl)
+			getAllDetailCmts(detailDriver, linkCrwl)
 		} else {
 			maxLengthE := paginationsE[len(paginationsE)-2]
 			turnRight := paginationsE[len(paginationsE)-1]
@@ -228,13 +228,13 @@ func initRequest(linkCrwl LinkCrwl) {
 			for i := 0; i < maxLength-1; i++ {
 				turnRight.Click()
 				time.Sleep(100 * time.Millisecond)
-				getDetailCmt(detailDriver, linkCrwl)
+				getAllDetailCmts(detailDriver, linkCrwl)
 			}
 		}
 	}
 }
 
-func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
+func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
 	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 	var allComments = make(map[string]structs.DetailComment)
@@ -261,7 +261,7 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 			time.Sleep(200 * time.Millisecond)
 		}
 	}
-	
+
 	commentItemE, er := detailDriver.FindElements(
 		selenium.ByCSSSelector, ".comment_item")
 	if er != nil {
@@ -272,67 +272,55 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 	// get text full comment
 	// insert list of comment and user info
 	for _, cmtItem := range commentItemE {
-		// get user_info from comment element
-		userInfoE, er := cmtItem.FindElement(
-			selenium.ByCSSSelector, ".user_status .nickname")
+
+		// check length sub_comment length class:
+		// == 0 => ((full_content, user_status) | (content_more, user_status))
+		// (> 0) => ((full_content, user_status) | (content_more, user_status)),
+		// (sub_comment[sub_comment_item(full_content, user_status)])
+
+		// check length .sub_comment
+		subCmtE, er := cmtItem.FindElements(
+			selenium.ByCSSSelector, ".sub_comment")
 		if er != nil {
-			log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
-			return
-		}
-
-		profileLink, er := userInfoE.GetAttribute("href")
-		if er != nil {
-			log.Println("Error, can not get profile user, ", linkCrwl.Link, er.Error())
-			continue
-		}
-
-		userName, er := userInfoE.Text()
-		if er != nil {
-			log.Println("Error, can not get user name, ", linkCrwl.Link, er.Error())
-			continue
-		}
-
-		detailComment := structs.DetailComment{
-			ProfileLink: profileLink,
-			UserName:    userName}
-
-		// click view full_content comment
-		var fullCmtText = ""
-		cmtsE, er := cmtItem.FindElement(
-			selenium.ByCSSSelector, "p.full_content")
-		if er == nil {
-			fullCmtText, er = cmtsE.Text()
-			if er != nil {
-				log.Println("eror on get full_content comment value, ", linkCrwl, er.Error())
-				continue
-			}
+			log.Println("eror on get .sub_comment value, ", er.Error())
 		} else {
-			// click view content_more
-			cmtmoresE, er := cmtItem.FindElement(
-				selenium.ByCSSSelector,
-				".content_more")
-			if er != nil {
-				log.Println("eror on get content_more view value, ", er.Error())
-				return
-			}
+			// not exist sub_comment
+			if len(subCmtE) == 0 {
+				detailCmt, er := getDetailCmt(cmtItem, linkCrwl)
+				if er != nil || detailCmt.Content == "" {
+					continue
+				}
+				// check detail comment not exist in map comments <= add
+				if _, ok := allComments[detailCmt.Content]; !ok {
+					allComments[detailCmt.Content] = detailCmt
+				}
+			} else {
+				// get first comment
+				firstComment, er := getDetailCmt(cmtItem, linkCrwl)
+				if er != nil || firstComment.Content == "" {
+					continue
+				}
+				// check detail comment not exist in map comments <= add
+				if _, ok := allComments[firstComment.Content]; !ok {
+					allComments[firstComment.Content] = firstComment
+				}
 
-			fullCmtText, er = cmtmoresE.Text()
-			if er != nil {
-				continue
+				// get list of reply comment on sub_comment detail
+				for _, subCmtDetail := range subCmtE {
+					replyComment, er := getDetailCmt(subCmtDetail, linkCrwl)
+					if er != nil || replyComment.Content == "" {
+						continue
+					}
+					// check detail comment not exist in map comments <= add
+					if _, ok := allComments[replyComment.Content]; !ok {
+						allComments[replyComment.Content] = replyComment
+					}
+				}
 			}
-		}
-		if fullCmtText == "" {
-			continue
-		}
-		detailComment.Content = fullCmtText
-
-		// check detail comment not exist in map comments <= add
-		if _, ok := allComments[fullCmtText]; !ok {
-			allComments[fullCmtText] = detailComment
 		}
 	}
 
-	detailComment := make([]structs.DetailComment, 0)
+	detailComments := make([]structs.DetailComment, 0)
 	for _, detail := range allComments {
 
 		linkPattern := regexp.MustCompile(LinkRexp)
@@ -351,14 +339,14 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 				log.Println("Error, can not insert user, ", user, er.Error())
 			}
 		}
-		detailComment = append(detailComment, detail)
+		detailComments = append(detailComments, detail)
 	}
 
 	// insert crawler link
 	linkCrw := structs.LinkCrawler{
 		ID:           primitive.NewObjectID(),
 		Link:         linkCrwl.Link,
-		Comments:     detailComment,
+		Comments:     detailComments,
 		Created:      time.Now().Unix(),
 		TotalComment: linkCrwl.TotalCmt,
 		Title:        linkCrwl.Title,
@@ -369,4 +357,62 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 	if er != nil {
 		log.Println("Error, can not insert link, ", linkCrw, er.Error())
 	}
+}
+
+func getDetailCmt(cmtItem selenium.WebElement, linkCrwl LinkCrwl) (structs.DetailComment, error) {
+
+	detailComment := structs.DetailComment{}
+	// get user_info from comment element
+	userInfoE, er := cmtItem.FindElement(
+		selenium.ByCSSSelector, ".nickname")
+	if er != nil {
+		log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
+		return detailComment, er
+	}
+
+	profileLink, er := userInfoE.GetAttribute("href")
+	if er != nil {
+		log.Println("Error, can not get profile user, ", linkCrwl.Link, er.Error())
+		return detailComment, er
+	}
+
+	userName, er := userInfoE.Text()
+	if er != nil {
+		log.Println("Error, can not get user name, ", linkCrwl.Link, er.Error())
+		return detailComment, er
+	}
+
+	detailComment.ProfileLink = profileLink
+	detailComment.UserName = userName
+
+	// click view full_content comment
+	var fullCmtText = ""
+	cmtsE, er := cmtItem.FindElement(
+		selenium.ByCSSSelector, "p.full_content")
+	if er == nil {
+		fullCmtText, er = cmtsE.Text()
+		if er != nil {
+			log.Println("eror on get full_content comment value, ", linkCrwl, er.Error())
+			return detailComment, er
+		}
+	} else {
+		// click view content_more
+		cmtmoresE, er := cmtItem.FindElement(
+			selenium.ByCSSSelector,
+			".content_more")
+		if er != nil {
+			log.Println("eror on get content_more view value, ", er.Error())
+			return detailComment, er
+		}
+
+		fullCmtText, er = cmtmoresE.Text()
+		if er != nil {
+			return detailComment, er
+		}
+	}
+	if fullCmtText == "" {
+		return detailComment, er
+	}
+	detailComment.Content = fullCmtText
+	return detailComment, nil
 }
