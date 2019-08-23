@@ -238,17 +238,6 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
 	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 	var allComments = make(map[string]structs.DetailComment)
-	// click view full comment
-	viewFullCmtsE, er := detailDriver.FindElements(
-		selenium.ByCSSSelector,
-		".comment_item .content_less .icon_show_full_comment")
-	if er == nil {
-		// click view more
-		for _, viewFull := range viewFullCmtsE {
-			viewFull.Click()
-			time.Sleep(200 * time.Millisecond)
-		}
-	}
 
 	// click view more reply comment
 	viewMoreRepE, er := detailDriver.FindElements(
@@ -261,6 +250,18 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 		}
 	}
 
+	// click view full comment
+	viewFullCmtsE, er := detailDriver.FindElements(
+		selenium.ByCSSSelector,
+		".comment_item .content_less .icon_show_full_comment")
+	if er == nil {
+		// click view more
+		for _, viewFull := range viewFullCmtsE {
+			viewFull.Click()
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	
 	commentItemE, er := detailDriver.FindElements(
 		selenium.ByCSSSelector, ".comment_item")
 	if er != nil {
@@ -307,9 +308,9 @@ func getDetailCmt(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 			}
 		} else {
 			// click view content_more
-			cmtmoresE, er := detailDriver.FindElement(
+			cmtmoresE, er := cmtItem.FindElement(
 				selenium.ByCSSSelector,
-				".comment_item .content_more")
+				".content_more")
 			if er != nil {
 				log.Println("eror on get content_more view value, ", er.Error())
 				return
