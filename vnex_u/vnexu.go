@@ -190,6 +190,7 @@ func initRequest(linkCrwl LinkCrwl) {
 		return
 	}
 	fmt.Println("--------------link crawl info receiver channel--------, ", linkCrwl)
+	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 	// click view more comment button
 	viewMoreE, er := detailDriver.FindElement(
 		selenium.ByCSSSelector,
@@ -203,17 +204,15 @@ func initRequest(linkCrwl LinkCrwl) {
 	paginationNextE, er := detailDriver.FindElement(
 		selenium.ByCSSSelector,
 		"#pagination a.next")
-	fmt.Println("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz, ",
-		paginationNextE,
-		er,
-		linkCrwl)
+
+	detailComments := make([]structs.DetailComment, 0)
 	if er != nil {
-		log.Println("Error, can not get pagination, ")
-		getAllDetailCmts(detailDriver, linkCrwl)
+		detailComments = getAllDetailCmts(detailDriver, linkCrwl)
 	} else {
 		for {
 			// get comment item from current page
-			getAllDetailCmts(detailDriver, linkCrwl)
+			detailCmtPagin := getAllDetailCmts(detailDriver, linkCrwl)
+			detailComments = append(detailComments, detailCmtPagin...)
 
 			// find element next pagination
 			paginationNextE, er = detailDriver.FindElement(
@@ -225,20 +224,36 @@ func initRequest(linkCrwl LinkCrwl) {
 			// click next page
 			paginationNextE.Click()
 			time.Sleep(500 * time.Millisecond)
+
 		}
+	}
+
+	// insert crawler link
+	linkCrw := structs.LinkCrawler{
+		ID:           primitive.NewObjectID(),
+		Link:         linkCrwl.Link,
+		Comments:     detailComments,
+		Created:      time.Now().Unix(),
+		TotalComment: linkCrwl.TotalCmt,
+		Title:        linkCrwl.Title,
+		Status:       3}
+
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	_, er = vnexLinksC.InsertOne(ctx, &linkCrw)
+	if er != nil {
+		log.Println("Error, can not insert link, ", linkCrw, er.Error())
 	}
 }
 
-func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
+func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []structs.DetailComment {
 	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 	var allComments = make(map[string]structs.DetailComment)
 
 	commentItemE, er := detailDriver.FindElements(
 		selenium.ByCSSSelector, ".comment_item")
 	if er != nil {
 		log.Println("eror on get comment_item value, ", er.Error())
-		return
+		return make([]structs.DetailComment, 0)
 	}
 
 	// get text full comment
@@ -353,24 +368,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 		}
 		detailComments = append(detailComments, detail)
 	}
-
-	// insert crawler link
-	// insert crawler link
-	linkCrw := structs.LinkCrawler{
-		ID:           primitive.NewObjectID(),
-		Link:         linkCrwl.Link,
-		Comments:     detailComments,
-		Created:      time.Now().Unix(),
-		TotalComment: linkCrwl.TotalCmt,
-		Title:        linkCrwl.Title,
-		Status:       3}
-
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	_, er = vnexLinksC.InsertOne(ctx, &linkCrw)
-	if er != nil {
-		log.Println("Error, can not insert link, ", linkCrw, er.Error())
-	}
-
+	return detailComments
 }
 
 func getDetailCmt(cmtItem selenium.WebElement,
