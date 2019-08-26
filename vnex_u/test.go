@@ -8,12 +8,7 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 
-	"gopkg.in/mgo.v2/bson"
-
-	"context"
-	"net/url"
 	"regexp"
-	"strconv"
 
 	structs "./utils"
 
@@ -23,7 +18,7 @@ import (
 )
 
 var (
-	local_client *utils.ClientMGO
+// local_client *utils.ClientMGO
 )
 
 type LinkCrwl struct {
@@ -39,7 +34,7 @@ const (
 func main() {
 
 	//create your file with desired read/write permissions
-	f, err := os.OpenFile("./log/update_proxy.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	f, err := os.OpenFile("./log/test.update_proxy.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,14 +48,14 @@ func main() {
 	log.Println("check to make sure it works")
 
 	var er error
-	er, local_client = utils.ConnectMGOLocalDB(utils.MongoDBInfo["docbao"])
-	if er != nil {
-		panic(er.Error())
-	}
-	defer local_client.CancelFunc()
-	defer local_client.Client.Disconnect(local_client.Ctx)
+	// er, local_client = utils.ConnectMGOLocalDB(utils.MongoDBInfo["docbao"])
+	// if er != nil {
+	// 	panic(er.Error())
+	// }
+	// defer local_client.CancelFunc()
+	// defer local_client.Client.Disconnect(local_client.Ctx)
 
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
+	// vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 
 	// initialize value for selenium
 	var webDriver selenium.WebDriver
@@ -72,107 +67,19 @@ func main() {
 		return
 	}
 	defer webDriver.Quit()
-
-	var linkChan = make(chan LinkCrwl)
-	var done = make(chan bool)
-
-	go func() {
-		for {
-			// client initial request on original url
-			er = webDriver.Get("https://vnexpress.net/")
-			if er != nil {
-				panic(er.Error())
-			}
-
-			// select type anonymous
-			articles, er := webDriver.FindElements(selenium.ByCSSSelector, "article.list_news")
-			if er != nil {
-				log.Println("eror on get articles value, ", er.Error())
-				return
-			}
-
-			for _, article := range articles {
-				linkE, err := article.FindElement(selenium.ByCSSSelector, "h4.title_news a")
-				if err != nil {
-					continue
-				}
-
-				link, err := linkE.Text()
-				if err != nil {
-					continue
-				}
-
-				totalCmtE, err := article.FindElement(selenium.ByCSSSelector, "span.txt_num_comment")
-				if err != nil {
-					continue
-				}
-				cmt, err := totalCmtE.Text()
-				if err != nil {
-					continue
-				}
-
-				totalCom, err := strconv.Atoi(cmt)
-				if err != nil {
-					continue
-				}
-
-				href, err := linkE.GetAttribute("href")
-				if err != nil {
-					continue
-				}
-				linkCrwl := LinkCrwl{
-					Link:     href,
-					Title:    link,
-					TotalCmt: totalCom}
-				fmt.Println("link crawl info sender channel, ", linkCrwl)
-				if totalCom > 0 {
-					linkChan <- linkCrwl
-				}
-			}
-
-			time.Sleep(10 * time.Minute)
-			_, er = webDriver.NewSession()
-			if er != nil {
-				log.Println("Can not initial new session, ", er.Error())
-				continue
-			}
-		}
-		done <- true
-	}()
-
-	for i := 0; i < 3; i++ {
-		go func() {
-			for linkCrwl := range linkChan {
-				ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-				urlParse, _ := url.Parse(linkCrwl.Link)
-				originalLink := urlParse.Scheme + "://" + urlParse.Host + urlParse.Path
-
-				// update original link
-				linkCrwl.Link = originalLink
-
-				count, er := vnexLinksC.Count(
-					ctx,
-					bson.M{"link": originalLink})
-
-				if er != nil {
-					log.Println("Error, can not count link, ", linkCrwl.Link, er.Error())
-					continue
-				}
-
-				if count > 0 {
-					continue
-				}
-
-				initRequest(linkCrwl)
-			}
-		}()
+	linkCrwl := "https://vnexpress.net/tam-su/cuoc-song-qua-day-du-hanh-phuc-khien-toi-nham-chan-3972483.html"
+	// client initial request on original url
+	er = webDriver.Get(linkCrwl)
+	if er != nil {
+		panic(er.Error())
 	}
-	<-done
+
+	zinitRequest(linkCrwl)
 }
 
 // insert new link and user vnexpress
 // extract list users from each page_url
-func initRequest(linkCrwl LinkCrwl) {
+func zinitRequest(linkCrwl string) {
 	var detailDriver selenium.WebDriver
 	var er error
 	caps := settings.SetChomeCapabilities()
@@ -184,9 +91,9 @@ func initRequest(linkCrwl LinkCrwl) {
 	}
 	defer detailDriver.Quit()
 	// client initial request on original url
-	er = detailDriver.Get(linkCrwl.Link)
+	er = detailDriver.Get(linkCrwl)
 	if er != nil {
-		log.Println("Error on request link, ", er.Error(), linkCrwl.Link)
+		log.Println("Error on request link, ", er.Error(), linkCrwl)
 		return
 	}
 	fmt.Println("--------------link crawl info receiver channel--------, ", linkCrwl)
@@ -229,9 +136,7 @@ func initRequest(linkCrwl LinkCrwl) {
 	}
 }
 
-func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
-	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
+func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl string) {
 	var allComments = make(map[string]structs.DetailComment)
 
 	commentItemE, er := detailDriver.FindElements(
@@ -244,7 +149,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 	// get text full comment
 	// insert list of comment and user info
 	for _, cmtItem := range commentItemE {
-		// click txt_view_more comment
+		// click view more reply comment
 		for {
 			viewMoreRepE, er := cmtItem.FindElements(
 				selenium.ByCSSSelector, ".view_all_reply")
@@ -253,7 +158,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 				break
 			}
 
-			for _, viewMoreRep := range viewMoreRepE {
+			for _, viewMoreRep := range viewMoreRepE{
 				// click view more
 				err := viewMoreRep.Click()
 				href, _ := viewMoreRep.Text()
@@ -262,14 +167,14 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 			}
 		}
 
-		// click icon_show_full_comment
+		// click view full comment
 		for {
 			viewFullCmtsE, er := cmtItem.FindElements(
 				selenium.ByCSSSelector,
 				".content_less .icon_show_full_comment")
 			fmt.Println("Error icon_show_full_comment, ", er, len(viewFullCmtsE))
 
-			for _, viewFullCmtE := range viewFullCmtsE {
+			for _, viewFullCmtE := range viewFullCmtsE{
 				// click view more
 				err := viewFullCmtE.Click()
 				fmt.Println("Error icon show full comment, ", err)
@@ -284,8 +189,9 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 		// (sub_comment[sub_comment_item(full_content, user_status)])
 
 		// check length .sub_comment
-		subCmtE, _ := cmtItem.FindElements(
+		subCmtE, er := cmtItem.FindElements(
 			selenium.ByCSSSelector, ".sub_comment_item")
+		log.Println("Error on get sub comment item, ", er, len(subCmtE))
 		if len(subCmtE) == 0 {
 			detailCmt, er := getDetailCmt(cmtItem, linkCrwl)
 			if er != nil || detailCmt.Content == "" {
@@ -326,74 +232,44 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) {
 		linkPattern := regexp.MustCompile(LinkRexp)
 		// only insert user if can  match link profile pattern
 		if linkPattern.MatchString(detail.ProfileLink) {
-			ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-			count, er := vnexUsersC.Count(ctx,
-				bson.M{"profile_link": detail.ProfileLink})
+			user := structs.VNExUser{
+				ID:          primitive.NewObjectID(),
+				ProfileLink: detail.ProfileLink,
+				Status:      0}
 
-			if er != nil {
-				log.Println("Error, can not count profile from vnexpress_users, ", er.Error())
-				continue
-			}
-
-			// only insert if not exist
-			if count == int64(0) {
-				user := structs.VNExUser{
-					ID:          primitive.NewObjectID(),
-					ProfileLink: detail.ProfileLink,
-					Status:      0}
-
-				ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
-				_, er := vnexUsersC.InsertOne(
-					ctx,
-					&user)
-				if er != nil {
-					log.Println("Error, can not insert user, ", user, er.Error())
-				}
-			}
+			log.Println("User info, ", user)
 		}
 		detailComments = append(detailComments, detail)
 	}
 
 	// insert crawler link
-	// insert crawler link
-	linkCrw := structs.LinkCrawler{
-		ID:           primitive.NewObjectID(),
-		Link:         linkCrwl.Link,
-		Comments:     detailComments,
-		Created:      time.Now().Unix(),
-		TotalComment: linkCrwl.TotalCmt,
-		Title:        linkCrwl.Title,
-		Status:       3}
-
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	_, er = vnexLinksC.InsertOne(ctx, &linkCrw)
-	if er != nil {
-		log.Println("Error, can not insert link, ", linkCrw, er.Error())
-	}
+	log.Println("detail comments, ", detailComments)
 
 }
 
 func getDetailCmt(cmtItem selenium.WebElement,
-	linkCrwl LinkCrwl) (structs.DetailComment, error) {
+	linkCrwl string) (structs.DetailComment, error) {
+
+	clsCmtItem, _ := cmtItem.Text()
 
 	detailComment := structs.DetailComment{}
 	// get user_info from comment element
 	userInfoE, er := cmtItem.FindElement(
 		selenium.ByCSSSelector, ".nickname")
 	if er != nil {
-		log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
+		log.Println("eror on get user profile link value, ", linkCrwl, er.Error(), "class item,", clsCmtItem)
 		return detailComment, er
 	}
 
 	profileLink, er := userInfoE.GetAttribute("href")
 	if er != nil {
-		log.Println("Error, can not get profile user, ", linkCrwl.Link, er.Error())
+		log.Println("Error, can not get profile user, ", linkCrwl, er.Error())
 		return detailComment, er
 	}
 
 	userName, er := userInfoE.Text()
 	if er != nil {
-		log.Println("Error, can not get user name, ", linkCrwl.Link, er.Error())
+		log.Println("Error, can not get user name, ", linkCrwl, er.Error())
 		return detailComment, er
 	}
 
