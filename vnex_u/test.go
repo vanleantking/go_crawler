@@ -123,15 +123,19 @@ func zinitRequest(linkCrwl string) {
 			getAllDetailCmts(detailDriver, linkCrwl)
 
 			// find element next pagination
-			paginationNextE, er = detailDriver.FindElement(
+			paginationsNextE, er := detailDriver.FindElements(
 				selenium.ByCSSSelector,
 				"#pagination a.next")
-			if er != nil {
+			log.Println("Pagination-------------------------", len(paginationsNextE), er)
+			if len(paginationsNextE) == 0 {
 				break
 			}
-			// click next page
-			paginationNextE.Click()
-			time.Sleep(500 * time.Millisecond)
+
+			for _, paginationNext := range paginationsNextE {
+				// click next page
+				paginationNext.Click()
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 	}
 }
@@ -158,7 +162,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl string) {
 				break
 			}
 
-			for _, viewMoreRep := range viewMoreRepE{
+			for _, viewMoreRep := range viewMoreRepE {
 				// click view more
 				err := viewMoreRep.Click()
 				href, _ := viewMoreRep.Text()
@@ -174,7 +178,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl string) {
 				".content_less .icon_show_full_comment")
 			fmt.Println("Error icon_show_full_comment, ", er, len(viewFullCmtsE))
 
-			for _, viewFullCmtE := range viewFullCmtsE{
+			for _, viewFullCmtE := range viewFullCmtsE {
 				// click view more
 				err := viewFullCmtE.Click()
 				fmt.Println("Error icon show full comment, ", err)

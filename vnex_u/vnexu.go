@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -189,6 +190,8 @@ func initRequest(linkCrwl LinkCrwl) {
 		log.Println("Error on request link, ", er.Error(), linkCrwl.Link)
 		return
 	}
+	time.Sleep(10 * time.Second)
+
 	fmt.Println("--------------link crawl info receiver channel--------, ", linkCrwl)
 	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
 	// click view more comment button
@@ -201,30 +204,35 @@ func initRequest(linkCrwl LinkCrwl) {
 	}
 
 	// pagination
-	paginationNextE, er := detailDriver.FindElement(
+	_, er = detailDriver.FindElement(
 		selenium.ByCSSSelector,
 		"#pagination a.next")
 
-	detailComments := make([]structs.DetailComment, 0)
+	var detailComments = []structs.DetailComment{}
 	if er != nil {
 		detailComments = getAllDetailCmts(detailDriver, linkCrwl)
 	} else {
 		for {
 			// get comment item from current page
-			detailCmtPagin := getAllDetailCmts(detailDriver, linkCrwl)
-			detailComments = append(detailComments, detailCmtPagin...)
+			cmtPaginate := getAllDetailCmts(detailDriver, linkCrwl)
+			detailComments = append(detailComments, cmtPaginate...)
+			// fmt.Println("Detail comments, ", detailComments)
 
 			// find element next pagination
-			paginationNextE, er = detailDriver.FindElement(
+			paginationsNextE, er := detailDriver.FindElements(
 				selenium.ByCSSSelector,
 				"#pagination a.next")
-			if er != nil {
+			fmt.Println("Pagination-------------------------", len(detailComments),
+				len(paginationsNextE), er, linkCrwl.Link)
+			if len(paginationsNextE) == 0 {
 				break
 			}
-			// click next page
-			paginationNextE.Click()
-			time.Sleep(500 * time.Millisecond)
 
+			for _, paginationNext := range paginationsNextE {
+				// click next page
+				paginationNext.Click()
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 	}
 
@@ -253,7 +261,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 		selenium.ByCSSSelector, ".comment_item")
 	if er != nil {
 		log.Println("eror on get comment_item value, ", er.Error())
-		return make([]structs.DetailComment, 0)
+		return []structs.DetailComment{}
 	}
 
 	// get text full comment
@@ -262,18 +270,26 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 		// click txt_view_more comment
 		for {
 			viewMoreRepE, er := cmtItem.FindElements(
-				selenium.ByCSSSelector, ".view_all_reply")
+				selenium.ByCSSSelector, ".txt_view_more a.view_all_reply")
 			fmt.Println("Error txt_view_more, ", er, len(viewMoreRepE))
 			if len(viewMoreRepE) == 0 {
 				break
 			}
 
+			countE := 0
+
 			for _, viewMoreRep := range viewMoreRepE {
 				// click view more
 				err := viewMoreRep.Click()
+				if err != nil && strings.Contains(err.Error(), "unknown error: unknown error") {
+					countE++
+				}
 				href, _ := viewMoreRep.Text()
-				fmt.Println("txt view more click err, ", err, viewMoreRepE, href)
+				fmt.Println("txt view more click err, ", countE, err, viewMoreRepE, href, linkCrwl.Link)
 				time.Sleep(1000 * time.Millisecond)
+			}
+			if countE > 0 {
+				break
 			}
 		}
 
@@ -335,7 +351,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 		}
 	}
 
-	detailComments := make([]structs.DetailComment, 0)
+	detailComments := []structs.DetailComment{}
 	for _, detail := range allComments {
 
 		linkPattern := regexp.MustCompile(LinkRexp)
