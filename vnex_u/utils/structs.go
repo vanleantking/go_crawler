@@ -34,3 +34,14 @@ type ProfileUser struct {
 	ID          primitive.ObjectID `json:"id" bson:"_id"`
 	ProfileLink string             `json:"profile_link" bson:"profile_link"`
 }
+
+type Link struct {
+	ID   primitive.ObjectID `json:"id" bson:"_id"`
+	Link string             `json:"link" bson:"link"`
+}
+
+type LinkCrwl struct {
+	Link     string
+	TotalCmt int
+	Title    string
+}

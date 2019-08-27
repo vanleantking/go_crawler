@@ -6,7 +6,10 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
+
+	"sync"
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 
@@ -29,6 +32,9 @@ const (
 )
 
 func main() {
+	var wg sync.WaitGroup
+	var er error
+
 	//create your file with desired read/write permissions
 	f, err := os.OpenFile("./log/scan_users.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
@@ -43,7 +49,6 @@ func main() {
 	//test case
 	log.Println("check to make sure it works")
 
-	var er error
 	er, localClient = utils.ConnectMGOLocalDB(utils.MongoDBInfo["docbao"])
 	if er != nil {
 		panic(er.Error())
@@ -51,77 +56,88 @@ func main() {
 	defer localClient.CancelFunc()
 	defer localClient.Client.Disconnect(localClient.Ctx)
 
-	vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
+	scanUsers(&wg)
+	scanLinks(&wg)
+	wg.Wait() // wait until all thread has complete
+	fmt.Println("Success.....................")
 
-	sortDesc := bson.M{"_id": -1}
-	defaultCondition := bson.M{"status": 0}
-	projectionFind := bson.M{
-		"_id":          1,
-		"profile_link": 1}
-	paging := paging.NewPaging(
-		vnexUsersC,
-		defaultCondition,
-		sortDesc, int64(1000))
+}
 
-	lastId, er := paging.GetMaxKey(
-		projectionFind,
-		sortDesc,
-		defaultCondition)
-	if er != nil {
-		log.Println("Error, ", er.Error())
-	}
-	newId := lastId
+func scanUsers(wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
 
-	for true {
-		// retry connect 3 times if error exist
-		for iter := 0; iter < 3; iter++ {
-			newId, er = paging.Paginage(bson.M{"$lte": lastId}, 30*time.Second)
+		sortDesc := bson.M{"_id": -1}
+		defaultCondition := bson.M{"status": 0}
+		projectionFind := bson.M{
+			"_id":          1,
+			"profile_link": 1}
+		paging := paging.NewPaging(
+			vnexUsersC,
+			defaultCondition,
+			sortDesc, int64(1000))
+
+		lastId, er := paging.GetMaxKey(
+			projectionFind,
+			sortDesc,
+			defaultCondition)
+		if er != nil {
+			log.Println("Error, ", er.Error())
+		}
+		newId := lastId
+
+		for true {
+			// retry connect 3 times if error exist
+			for iter := 0; iter < 3; iter++ {
+				newId, er = paging.Paginage(bson.M{"$lte": lastId}, 30*time.Second)
+				if er != nil {
+					fmt.Println("Have no data to sync, please wait ", er.Error())
+				} else {
+					break
+				}
+			}
 			if er != nil {
-				fmt.Println("Have no data to sync, please wait ", er.Error())
-			} else {
+				fmt.Println("Error after 3 times retry, program exit", er.Error())
 				break
 			}
-		}
-		if er != nil {
-			fmt.Println("Error after 3 times retry, program exit", er.Error())
-			break
-		}
-		if len(paging.Results) == 0 {
-			fmt.Println("Have no data to sync, please wait")
-			// wait 30 minute before next query
-			time.Sleep(5 * time.Minute)
-			// update last id
-			lastId, er = paging.GetMaxKey(
-				projectionFind,
-				sortDesc,
-				defaultCondition)
-		} else {
-			fmt.Println("len result, ", len(paging.Results))
-			for _, result := range paging.Results {
-				var err error
-				var profileLink structs.ProfileUser
+			if len(paging.Results) == 0 {
+				fmt.Println("Have no data to sync, please wait")
+				// wait 30 minute before next query
+				time.Sleep(5 * time.Minute)
+				// update last id
+				lastId, er = paging.GetMaxKey(
+					projectionFind,
+					sortDesc,
+					defaultCondition)
+			} else {
+				fmt.Println("len result, ", len(paging.Results))
+				for _, result := range paging.Results {
+					var err error
+					var profileLink structs.ProfileUser
 
-				bsonBytes, err := bson.Marshal(result)
+					bsonBytes, err := bson.Marshal(result)
 
-				if err != nil {
-					log.Println("Error: can not get decode go_cookies bson bytes", err.Error())
-					continue
+					if err != nil {
+						log.Println("Error: can not get decode go_cookies bson bytes", err.Error())
+						continue
+					}
+					err = bson.Unmarshal(bsonBytes, &profileLink)
+					if err != nil {
+						log.Println("Error: can not get decode go_cookies models", err.Error())
+						continue
+					}
+
+					updateLinksUserProfile(profileLink)
 				}
-				err = bson.Unmarshal(bsonBytes, &profileLink)
-				if err != nil {
-					log.Println("Error: can not get decode go_cookies models", err.Error())
-					continue
-				}
-
-				updateLinksUserProfile(profileLink)
+				lastId = newId
 			}
-			lastId = newId
 		}
-	}
+	}()
 }
 
 func updateLinksUserProfile(profileLink structs.ProfileUser) {
-	// initialize value for selenium
 	var webDriver selenium.WebDriver
 	var er error
 	caps := settings.SetChomeCapabilities()
@@ -133,7 +149,6 @@ func updateLinksUserProfile(profileLink structs.ProfileUser) {
 	}
 	defer webDriver.Quit()
 
-	// client initial request on original url
 	er = webDriver.Get(profileLink.ProfileLink)
 	if er != nil {
 		panic(er.Error())
@@ -232,5 +247,176 @@ func updateLinksUserProfile(profileLink structs.ProfileUser) {
 			"status":      3}})
 	if er != nil {
 		log.Println("Error, can not insert vnexpress_users, ", er.Error())
+	}
+}
+
+func scanLinks(wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		vnexLinksC := localClient.Client.Database("docbao").Collection("vnexpress_links")
+
+		sortDesc := bson.M{"_id": -1}
+		defaultCondition := bson.M{"status": 0}
+		projectionFind := bson.M{
+			"_id":  1,
+			"link": 1}
+		paging := paging.NewPaging(
+			vnexLinksC,
+			defaultCondition,
+			sortDesc, int64(1000))
+
+		lastId, er := paging.GetMaxKey(
+			projectionFind,
+			sortDesc,
+			defaultCondition)
+		if er != nil {
+			log.Println("Error, ", er.Error())
+		}
+		newId := lastId
+
+		for true {
+			// retry connect 3 times if error exist
+			for iter := 0; iter < 3; iter++ {
+				newId, er = paging.Paginage(bson.M{"$lte": lastId}, 30*time.Second)
+				if er != nil {
+					fmt.Println("Have no data to sync, please wait ", er.Error())
+				} else {
+					break
+				}
+			}
+			if er != nil {
+				fmt.Println("Error after 3 times retry, program exit", er.Error())
+				break
+			}
+			if len(paging.Results) == 0 {
+				fmt.Println("Have no data to sync, please wait")
+				// wait 30 minute before next query
+				time.Sleep(5 * time.Minute)
+				// update last id
+				lastId, er = paging.GetMaxKey(
+					projectionFind,
+					sortDesc,
+					defaultCondition)
+			} else {
+				fmt.Println("len result, ", len(paging.Results))
+				for _, result := range paging.Results {
+					var err error
+					var profileLink structs.Link
+
+					bsonBytes, err := bson.Marshal(result)
+
+					if err != nil {
+						log.Println("Error: can not get decode go_cookies bson bytes", err.Error())
+						continue
+					}
+					err = bson.Unmarshal(bsonBytes, &profileLink)
+					if err != nil {
+						log.Println("Error: can not get decode go_cookies models", err.Error())
+						continue
+					}
+					initProfileRequest(profileLink)
+				}
+				lastId = newId
+			}
+		}
+	}()
+}
+
+func initProfileRequest(profileLink structs.Link) {
+	var webDriver selenium.WebDriver
+	var er error
+	caps := settings.SetChomeCapabilities()
+
+	// connect to selenium Standalone alone (run on java jar package)
+	if webDriver, er = settings.InitNewRemote(caps, utils.STANDALONESERVER); er != nil {
+		fmt.Printf("Failed to open session: %s\n", er)
+		return
+	}
+	defer webDriver.Quit()
+	vnexLinksC := localClient.Client.Database("docbao").Collection("vnexpress_links")
+
+	// client initial request on original url
+	er = webDriver.Get(profileLink.Link)
+	if er != nil {
+		log.Println("Error on request link, ", er.Error(), profileLink.Link)
+		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		_, er := vnexLinksC.UpdateOne(ctx,
+			bson.M{"_id": profileLink.ID},
+			bson.M{"$set": bson.M{
+				"status": 2}})
+		if er != nil {
+			log.Println("Error, can not update vnexpress_links, ", er.Error())
+		}
+		return
+	}
+	time.Sleep(10 * time.Second)
+	totalComments := 0
+
+	totalCmtE, er := webDriver.FindElement(selenium.ByCSSSelector, "#total_comment")
+	if er != nil {
+		fmt.Println("Error, can not get total comment, ", er.Error())
+	} else {
+		totalCmts, _ := totalCmtE.Text()
+		totalComments, _ = strconv.Atoi(totalCmts)
+	}
+
+	fmt.Println("--------------link crawl info receiver channel--------, ", profileLink)
+
+	vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
+	// click view more comment button
+	viewMoreE, er := webDriver.FindElement(
+		selenium.ByCSSSelector,
+		".view_more_coment")
+	if er == nil {
+		viewMoreE.Click()
+		time.Sleep(5 * time.Second)
+	}
+
+	// pagination
+	_, er = webDriver.FindElement(
+		selenium.ByCSSSelector,
+		"#pagination a.next")
+
+	var detailComments = []structs.DetailComment{}
+	linkCrwl := structs.LinkCrwl{
+		Link: profileLink.Link}
+	if er != nil {
+		detailComments = structs.GetAllDetailCmts(webDriver, linkCrwl, vnexUsersC)
+	} else {
+		for {
+			// get comment item from current page
+			cmtPaginate := structs.GetAllDetailCmts(webDriver, linkCrwl, vnexUsersC)
+			detailComments = append(detailComments, cmtPaginate...)
+
+			// find element next pagination
+			paginationsNextE, er := webDriver.FindElements(
+				selenium.ByCSSSelector,
+				"#pagination a.next")
+			fmt.Println("Pagination-------------------------", len(detailComments),
+				len(paginationsNextE), er, profileLink.Link)
+			if len(paginationsNextE) == 0 {
+				break
+			}
+
+			for _, paginationNext := range paginationsNextE {
+				// click next page
+				paginationNext.Click()
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
+
+	// update crawler link
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	_, er = vnexLinksC.UpdateOne(ctx,
+		bson.M{"_id": profileLink.ID},
+		bson.M{"$set": bson.M{
+			"created":       time.Now().Unix(),
+			"comments":      detailComments,
+			"total_comment": totalComments,
+			"status":        3}})
+	if er != nil {
+		log.Println("Error, can not update link, ", profileLink, er.Error())
 	}
 }
