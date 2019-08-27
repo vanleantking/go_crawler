@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -216,7 +215,6 @@ func initRequest(linkCrwl LinkCrwl) {
 			// get comment item from current page
 			cmtPaginate := getAllDetailCmts(detailDriver, linkCrwl)
 			detailComments = append(detailComments, cmtPaginate...)
-			// fmt.Println("Detail comments, ", detailComments)
 
 			// find element next pagination
 			paginationsNextE, er := detailDriver.FindElements(
@@ -268,6 +266,7 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 	// insert list of comment and user info
 	for _, cmtItem := range commentItemE {
 		// click txt_view_more comment
+		countE := 0
 		for {
 			viewMoreRepE, er := cmtItem.FindElements(
 				selenium.ByCSSSelector, ".txt_view_more a.view_all_reply")
@@ -276,16 +275,14 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 				break
 			}
 
-			countE := 0
-
 			for _, viewMoreRep := range viewMoreRepE {
 				// click view more
 				err := viewMoreRep.Click()
-				if err != nil && strings.Contains(err.Error(), "unknown error: unknown error") {
+				if err != nil {
 					countE++
 				}
 				href, _ := viewMoreRep.Text()
-				fmt.Println("txt view more click err, ", countE, err, viewMoreRepE, href, linkCrwl.Link)
+				fmt.Println("txt view more click err, ", countE, err, len(viewMoreRepE), href, linkCrwl.Link)
 				time.Sleep(1000 * time.Millisecond)
 			}
 			if countE > 0 {
@@ -299,12 +296,15 @@ func getAllDetailCmts(detailDriver selenium.WebDriver, linkCrwl LinkCrwl) []stru
 				selenium.ByCSSSelector,
 				".content_less .icon_show_full_comment")
 			fmt.Println("Error icon_show_full_comment, ", er, len(viewFullCmtsE))
+			if len(viewFullCmtsE) == 0 {
+				break
+			}
 
 			for _, viewFullCmtE := range viewFullCmtsE {
 				// click view more
 				err := viewFullCmtE.Click()
 				fmt.Println("Error icon show full comment, ", err)
-				time.Sleep(1000 * time.Millisecond)
+				time.Sleep(2000 * time.Millisecond)
 			}
 			break
 		}

@@ -29,3 +29,8 @@ type VNExUser struct {
 	Created     int64              `json:"created" bson:"created"`
 	Status      int                `json:"status" bson:"status"`
 }
+
+type ProfileUser struct {
+	ID          primitive.ObjectID `json:"id" bson:"_id"`
+	ProfileLink string             `json:"profile_link" bson:"profile_link"`
+}
