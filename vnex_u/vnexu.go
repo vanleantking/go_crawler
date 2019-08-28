@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	local_client *utils.ClientMGO
+	ipInfoClient *utils.ClientMGO
 )
 
 func main() {
@@ -42,14 +42,14 @@ func main() {
 	log.Println("check to make sure it works")
 
 	var er error
-	er, local_client = utils.ConnectMGOLocalDB(utils.MongoDBInfo["docbao"])
+	er, ipInfoClient = utils.ConnectMongoDB(utils.MongoDBInfo["ip_info"])
 	if er != nil {
 		panic(er.Error())
 	}
-	defer local_client.CancelFunc()
-	defer local_client.Client.Disconnect(local_client.Ctx)
+	defer ipInfoClient.CancelFunc()
+	defer ipInfoClient.Client.Disconnect(ipInfoClient.Ctx)
 
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
+	vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
 
 	// initialize value for selenium
 	var webDriver selenium.WebDriver
@@ -181,8 +181,8 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 	time.Sleep(10 * time.Second)
 
 	fmt.Println("--------------link crawl info receiver channel--------, ", linkCrwl)
-	vnexLinksC := local_client.Client.Database("docbao").Collection("vnexpress_links")
-	vnexUsersC := local_client.Client.Database("docbao").Collection("vnexpress_users")
+	vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
+	vnexUsersC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_users")
 	// click view more comment button
 	viewMoreE, er := detailDriver.FindElement(
 		selenium.ByCSSSelector,

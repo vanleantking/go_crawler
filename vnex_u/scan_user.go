@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	localClient *utils.ClientMGO
+	ipInfoClient *utils.ClientMGO
 )
 
 const (
@@ -49,12 +49,12 @@ func main() {
 	//test case
 	log.Println("check to make sure it works")
 
-	er, localClient = utils.ConnectMGOLocalDB(utils.MongoDBInfo["docbao"])
+	er, ipInfoClient = utils.ConnectMongoDB(utils.MongoDBInfo["ip_info"])
 	if er != nil {
 		panic(er.Error())
 	}
-	defer localClient.CancelFunc()
-	defer localClient.Client.Disconnect(localClient.Ctx)
+	defer ipInfoClient.CancelFunc()
+	defer ipInfoClient.Client.Disconnect(ipInfoClient.Ctx)
 
 	scanUsers(&wg)
 	scanLinks(&wg)
@@ -67,7 +67,7 @@ func scanUsers(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
+		vnexUsersC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_users")
 
 		sortDesc := bson.M{"_id": -1}
 		defaultCondition := bson.M{"status": 0}
@@ -93,7 +93,7 @@ func scanUsers(wg *sync.WaitGroup) {
 			for iter := 0; iter < 3; iter++ {
 				newId, er = paging.Paginage(bson.M{"$lte": lastId}, 30*time.Second)
 				if er != nil {
-					fmt.Println("Have no data to sync, please wait ", er.Error())
+					fmt.Println("scan users vnexpress_users Have no data to sync, please wait ", er.Error())
 				} else {
 					break
 				}
@@ -103,7 +103,7 @@ func scanUsers(wg *sync.WaitGroup) {
 				break
 			}
 			if len(paging.Results) == 0 {
-				fmt.Println("Have no data to sync, please wait")
+				fmt.Println("scan users vnexpress_users Have no data to sync, please wait")
 				// wait 30 minute before next query
 				time.Sleep(5 * time.Minute)
 				// update last id
@@ -153,8 +153,8 @@ func updateLinksUserProfile(profileLink structs.ProfileUser) {
 	if er != nil {
 		panic(er.Error())
 	}
-	vnexLinksC := localClient.Client.Database("docbao").Collection("vnexpress_links")
-	vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
+	vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
+	vnexUsersC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_users")
 
 	// click load_more_comment button
 	for {
@@ -254,7 +254,7 @@ func scanLinks(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		vnexLinksC := localClient.Client.Database("docbao").Collection("vnexpress_links")
+		vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
 
 		sortDesc := bson.M{"_id": -1}
 		defaultCondition := bson.M{"status": 0}
@@ -280,7 +280,7 @@ func scanLinks(wg *sync.WaitGroup) {
 			for iter := 0; iter < 3; iter++ {
 				newId, er = paging.Paginage(bson.M{"$lte": lastId}, 30*time.Second)
 				if er != nil {
-					fmt.Println("Have no data to sync, please wait ", er.Error())
+					fmt.Println("scan links vnexpress_links Have no data to sync, please wait ", er.Error())
 				} else {
 					break
 				}
@@ -290,7 +290,7 @@ func scanLinks(wg *sync.WaitGroup) {
 				break
 			}
 			if len(paging.Results) == 0 {
-				fmt.Println("Have no data to sync, please wait")
+				fmt.Println("scan links vnexpress_links Have no data to sync, please wait")
 				// wait 30 minute before next query
 				time.Sleep(5 * time.Minute)
 				// update last id
@@ -334,7 +334,7 @@ func initProfileRequest(profileLink structs.Link) {
 		return
 	}
 	defer webDriver.Quit()
-	vnexLinksC := localClient.Client.Database("docbao").Collection("vnexpress_links")
+	vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
 
 	// client initial request on original url
 	er = webDriver.Get(profileLink.Link)
@@ -363,7 +363,7 @@ func initProfileRequest(profileLink structs.Link) {
 
 	fmt.Println("--------------link crawl info receiver channel--------, ", profileLink)
 
-	vnexUsersC := localClient.Client.Database("docbao").Collection("vnexpress_users")
+	vnexUsersC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_users")
 	// click view more comment button
 	viewMoreE, er := webDriver.FindElement(
 		selenium.ByCSSSelector,

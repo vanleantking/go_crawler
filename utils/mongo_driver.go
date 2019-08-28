@@ -23,6 +23,12 @@ type DBInfo struct {
 }
 
 var MongoDBInfo = map[string]DBInfo{
+	"ip_info": {
+		Username: USERNAME5,
+		Password: PASSWORD5,
+		Address:  IPINFO,
+		Port:     PORT4,
+		Database: DATABASE3},
 	"localhost": DBInfo{
 		Address:  ADDLOCALHOST,
 		Port:     PORTLOCAL,
