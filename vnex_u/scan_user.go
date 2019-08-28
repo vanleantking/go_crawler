@@ -384,6 +384,7 @@ func initProfileRequest(profileLink structs.Link) {
 	if er != nil {
 		detailComments = structs.GetAllDetailCmts(webDriver, linkCrwl, vnexUsersC)
 	} else {
+		countE := 0
 		for {
 			// get comment item from current page
 			cmtPaginate := structs.GetAllDetailCmts(webDriver, linkCrwl, vnexUsersC)
@@ -401,8 +402,15 @@ func initProfileRequest(profileLink structs.Link) {
 
 			for _, paginationNext := range paginationsNextE {
 				// click next page
-				paginationNext.Click()
-				time.Sleep(500 * time.Millisecond)
+				er := paginationNext.Click()
+				if er != nil {
+					countE++
+					break
+				}
+				time.Sleep(1500 * time.Millisecond)
+			}
+			if countE > 3 {
+				break
 			}
 		}
 	}

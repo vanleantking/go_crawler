@@ -48,11 +48,13 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				err := viewMoreRep.Click()
 				if err != nil {
 					countE++
+					break
 				}
 				href, _ := viewMoreRep.Text()
-				fmt.Println("txt view more click err, ", countE, err, len(viewMoreRepE), href, linkCrwl.Link)
+				fmt.Println("txt view more click err, ", err, len(viewMoreRepE), href, linkCrwl.Link)
 				time.Sleep(1000 * time.Millisecond)
 			}
+			fmt.Println("-----------------------error count, ", len(viewMoreRepE))
 			if countE > 0 {
 				break
 			}
@@ -85,6 +87,7 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 		// check length .sub_comment
 		subCmtE, _ := cmtItem.FindElements(
 			selenium.ByCSSSelector, ".sub_comment_item")
+		fmt.Println("len sub commenttttttttttttttttttttttttttt, ", len(subCmtE))
 		if len(subCmtE) == 0 {
 			detailCmt, er := GetDetailCmt(cmtItem, linkCrwl)
 			if er != nil || detailCmt.Content == "" {

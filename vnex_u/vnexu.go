@@ -119,7 +119,7 @@ func main() {
 				}
 			}
 
-			time.Sleep(10 * time.Minute)
+			time.Sleep(30 * time.Minute)
 			_, er = webDriver.NewSession()
 			if er != nil {
 				log.Println("Can not initial new session, ", er.Error())
@@ -201,9 +201,10 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 	if er != nil {
 		detailComments = structs.GetAllDetailCmts(detailDriver, linkCrwl, vnexUsersC)
 	} else {
+		countE := 0
 		for {
 			// get comment item from current page
-			cmtPaginate := structs.GetAllDetailCmts(detailDriver, linkCrwl)
+			cmtPaginate := structs.GetAllDetailCmts(detailDriver, linkCrwl, vnexUsersC)
 			detailComments = append(detailComments, cmtPaginate...)
 
 			// find element next pagination
@@ -218,8 +219,16 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 
 			for _, paginationNext := range paginationsNextE {
 				// click next page
-				paginationNext.Click()
-				time.Sleep(500 * time.Millisecond)
+				er := paginationNext.Click()
+				fmt.Println("Err paginationnnnnnnnnnnnnnnnn, ", er)
+				if er != nil {
+					countE++
+					break
+				}
+				time.Sleep(2 * time.Second)
+			}
+			if countE > 0 {
+				break
 			}
 		}
 	}
