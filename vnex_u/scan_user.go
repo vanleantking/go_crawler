@@ -350,7 +350,7 @@ func initProfileRequest(profileLink structs.Link) {
 		}
 		return
 	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 	totalComments := 0
 
 	totalCmtE, er := webDriver.FindElement(selenium.ByCSSSelector, "#total_comment")
@@ -407,9 +407,9 @@ func initProfileRequest(profileLink structs.Link) {
 					countE++
 					break
 				}
-				time.Sleep(1500 * time.Millisecond)
+				time.Sleep(3000 * time.Millisecond)
 			}
-			if countE > 3 {
+			if countE > 0 {
 				break
 			}
 		}
