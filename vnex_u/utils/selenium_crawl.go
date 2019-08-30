@@ -32,9 +32,10 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 	// get text full comment
 	// insert list of comment and user info
-	for _, cmtItem := range commentItemE {
+	for indexCmtItem := 0; indexCmtItem < len(commentItemE); indexCmtItem++ {
 		// click txt_view_more comment
 		countE := 0
+		var cmtItem = commentItemE[indexCmtItem]
 		for {
 			viewMoreRepE, er := cmtItem.FindElements(
 				selenium.ByCSSSelector, ".txt_view_more a.view_all_reply")
@@ -43,16 +44,17 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				break
 			}
 
-			for _, viewMoreRep := range viewMoreRepE {
+			for idxViewMore := 0; idxViewMore < len(viewMoreRepE); idxViewMore++ {
 				// click view more
-				err := viewMoreRep.Click()
+				err := viewMoreRepE[idxViewMore].Click()
 				if err != nil {
 					countE++
 					break
 				}
-				href, _ := viewMoreRep.Text()
+				href, _ := viewMoreRepE[idxViewMore].Text()
 				fmt.Println("txt view more click err, ", err, len(viewMoreRepE), href, linkCrwl.Link)
 				time.Sleep(1000 * time.Millisecond)
+
 			}
 			fmt.Println("-----------------------error count, ", len(viewMoreRepE))
 			if countE > 0 {
@@ -70,9 +72,9 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				break
 			}
 
-			for _, viewFullCmtE := range viewFullCmtsE {
+			for idxViewFull := 0; idxViewFull < len(viewFullCmtsE); idxViewFull++ {
 				// click view more
-				err := viewFullCmtE.Click()
+				err := viewFullCmtsE[idxViewFull].Click()
 				fmt.Println("Error icon show full comment, ", err)
 				time.Sleep(2000 * time.Millisecond)
 			}
@@ -109,8 +111,8 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 			}
 
 			// get list of reply comment on sub_comment detail
-			for _, subCmtDetail := range subCmtE {
-				replyComment, er := GetDetailCmt(subCmtDetail, linkCrwl)
+			for i := 0; i < len(subCmtE); i++ {
+				replyComment, er := GetDetailCmt(subCmtE[i], linkCrwl)
 				if er != nil || replyComment.Content == "" {
 					continue
 				}
@@ -164,11 +166,21 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 
 	detailComment := DetailComment{}
 	// get user_info from comment element
-	userInfoE, er := cmtItem.FindElement(
+	var userInfoE selenium.WebElement
+	var er error
+
+	// get user-info from .nickname
+	userInfoE, er = cmtItem.FindElement(
 		selenium.ByCSSSelector, ".nickname")
 	if er != nil {
-		log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
-		return detailComment, er
+
+		// get user-info from .avata_coment
+		userInfoE, er = cmtItem.FindElement(
+			selenium.ByCSSSelector, ".avata_coment")
+		if er != nil {
+			log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
+			return detailComment, er
+		}
 	}
 
 	profileLink, er := userInfoE.GetAttribute("href")
