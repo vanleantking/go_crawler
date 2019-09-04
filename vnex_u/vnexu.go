@@ -16,6 +16,7 @@ import (
 
 	structs "./utils"
 
+	SU "../selenium_utils"
 	"../settings"
 	"../utils"
 	"github.com/tebeka/selenium"
@@ -184,12 +185,17 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 	vnexLinksC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_links")
 	vnexUsersC := ipInfoClient.Client.Database("dmp_data").Collection("vnexpress_users")
 	// click view more comment button
+
 	viewMoreE, er := detailDriver.FindElement(
 		selenium.ByCSSSelector,
 		".view_more_coment")
 	if er == nil {
-		viewMoreE.Click()
-		time.Sleep(5 * time.Second)
+		efu := SU.NewEFU(detailDriver, 5)
+		_, er = efu.WaitUntilClickable(viewMoreE, ".view_more_coment", -1)
+		if er != nil {
+			panic(".view_more_coment " + er.Error())
+			return
+		}
 	}
 
 	// pagination
@@ -217,11 +223,12 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 				break
 			}
 
-			for _, paginationNext := range paginationsNextE {
+			for idx, paginationNext := range paginationsNextE {
 				// click next page
-				er := paginationNext.Click()
-				fmt.Println("Err paginationnnnnnnnnnnnnnnnn, ", er)
+				efu := SU.NewEFU(detailDriver, 3)
+				_, er = efu.WaitUntilClickable(paginationNext, "#pagination a.next", idx)
 				if er != nil {
+					panic("#pagination a.next " + er.Error())
 					countE++
 					break
 				}

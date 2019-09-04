@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	SU "../../selenium_utils"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/tebeka/selenium"
@@ -46,13 +47,16 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 			for idxViewMore := 0; idxViewMore < len(viewMoreRepE); idxViewMore++ {
 				// click view more
-				err := viewMoreRepE[idxViewMore].Click()
-				if err != nil {
+				efu := SU.NewEFU(detailDriver, 3)
+				_, er = efu.WaitUntilClickable(viewMoreRepE[idxViewMore],
+					".txt_view_more a.view_all_reply", idxViewMore)
+				if er != nil {
+					panic(".txt_view_more a.view_all_reply " + er.Error())
 					countE++
 					break
 				}
 				href, _ := viewMoreRepE[idxViewMore].Text()
-				fmt.Println("txt view more click err, ", err, len(viewMoreRepE), href, linkCrwl.Link)
+				fmt.Println("txt view more click err, ", len(viewMoreRepE), href, linkCrwl.Link)
 				time.Sleep(1000 * time.Millisecond)
 
 			}
@@ -74,8 +78,14 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 			for idxViewFull := 0; idxViewFull < len(viewFullCmtsE); idxViewFull++ {
 				// click view more
-				err := viewFullCmtsE[idxViewFull].Click()
-				fmt.Println("Error icon show full comment, ", err)
+				efu := SU.NewEFU(detailDriver, 3)
+				_, er = efu.WaitUntilClickable(viewFullCmtsE[idxViewFull],
+					".txt_view_more a.view_all_reply", idxViewFull)
+				if er != nil {
+					panic(".txt_view_more a.view_all_reply " + er.Error())
+					countE++
+					break
+				}
 				time.Sleep(2000 * time.Millisecond)
 			}
 			break
@@ -175,10 +185,10 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	if er != nil {
 
 		// get user-info from .avata_coment
-		userInfoE, er = cmtItem.FindElement(
-			selenium.ByCSSSelector, ".avata_coment")
+		efu := SU.NewEFU(nil, 5)
+		userInfoE, er = efu.WaitElementWTimeOut(cmtItem, ".avata_coment", int64(2))
 		if er != nil {
-			log.Println("eror on get user profile link value, ", linkCrwl.Link, er.Error())
+			panic(".avata_coment " + er.Error())
 			return detailComment, er
 		}
 	}
@@ -210,11 +220,10 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 		}
 	} else {
 		// click view content_more
-		cmtmoresE, er := cmtItem.FindElement(
-			selenium.ByCSSSelector,
-			".content_more")
+		efu := SU.NewEFU(nil, 5)
+		cmtmoresE, er := efu.WaitElementWTimeOut(cmtItem, ".content_more", int64(2))
 		if er != nil {
-			log.Println("eror on get content_more view value, ", er.Error())
+			panic(".content_more " + er.Error())
 			return detailComment, er
 		}
 
