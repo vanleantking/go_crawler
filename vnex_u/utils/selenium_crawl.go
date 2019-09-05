@@ -51,7 +51,6 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				_, er = efu.WaitUntilClickable(viewMoreRepE[idxViewMore],
 					".txt_view_more a.view_all_reply", -1)
 				if er != nil {
-					panic(".txt_view_more a.view_all_reply " + er.Error() + " len more then 1")
 					countE++
 					break
 				}
@@ -82,7 +81,6 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				_, er = efu.WaitUntilClickable(viewFullCmtsE[idxViewFull],
 					".txt_view_more a.view_all_reply", -1)
 				if er != nil {
-					panic(".txt_view_more a.view_all_reply " + er.Error())
 					countE++
 					break
 				}
@@ -162,7 +160,7 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 			if er != nil {
 				log.Println("Error, can not count profile from vnexpress_users, ", er.Error())
-				panic(er.Error())
+				continue
 			}
 
 			// only insert if not exist
@@ -196,15 +194,13 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	var er error
 
 	// get user-info from .nickname
-	userInfoE, er = cmtItem.FindElement(
-		selenium.ByCSSSelector, ".nickname")
-	if er != nil {
-
+	efu := SU.NewEFU(nil, 10)
+	userInfoE, er = efu.WaitElementWTimeOut(cmtItem, ".nickname", int64(2))
+	if er != nil && er.Error() == SU.NoSuchElement {
 		// get user-info from .avata_coment
-		efu := SU.NewEFU(nil, 5)
+		efu := SU.NewEFU(nil, 10)
 		userInfoE, er = efu.WaitElementWTimeOut(cmtItem, ".avata_coment", int64(2))
 		if er != nil {
-			panic(".avata_coment " + er.Error())
 			return detailComment, er
 		}
 	}
@@ -212,14 +208,12 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	profileLink, er := userInfoE.GetAttribute("href")
 	if er != nil {
 		log.Println("Error, can not get profile user, ", linkCrwl.Link, er.Error())
-		panic(er.Error() + " " + linkCrwl.Link)
 		return detailComment, er
 	}
 
 	userName, er := userInfoE.Text()
 	if er != nil {
 		log.Println("Error, can not get user name, ", linkCrwl.Link, er.Error())
-		panic(er.Error() + " " + linkCrwl.Link)
 		return detailComment, er
 	}
 
@@ -229,7 +223,7 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	// click view full_content comment
 	var fullCmtText = ""
 	// click view content_more
-	efu := SU.NewEFU(nil, 10)
+	efu = SU.NewEFU(nil, 10)
 	cmtsE, fullCmter := efu.WaitElementWTimeOut(cmtItem, "p.full_content", int64(2))
 	if fullCmter == nil {
 		fullCmtText, er = cmtsE.Text()
