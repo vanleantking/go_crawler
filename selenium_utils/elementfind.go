@@ -47,25 +47,27 @@ type ElementFindUtils struct {
 	timeout int64
 	Wait    int
 	Retry   int
+	curTime int64
 }
 
 // NewEFU return ElementFindUtils instance
-func NewEFU(driver selenium.WebDriver, wait int) ElementFindUtils {
-	efu := ElementFindUtils{
-		Driver: driver,
-		Wait:   wait,
-		Retry:  3}
+func NewEFU(driver selenium.WebDriver, wait int) *ElementFindUtils {
+	efu := &ElementFindUtils{
+		Driver:  driver,
+		Wait:    wait,
+		Retry:   3,
+		curTime: time.Now().Unix()}
 
-	efu.setTimeOut(time.Now().Unix(), wait)
+	efu.setTimeOut(wait)
 	return efu
 }
 
-func (efu ElementFindUtils) setTimeOut(curTime int64, timeout int) {
-	efu.timeout = curTime + int64(timeout)
+func (efu *ElementFindUtils) setTimeOut(timeout int) {
+	efu.timeout = efu.curTime + int64(timeout)
 }
 
 // WaitElementWTimeOut return element after timeout
-func (efu ElementFindUtils) WaitElementWTimeOut(parentElement selenium.WebElement,
+func (efu *ElementFindUtils) WaitElementWTimeOut(parentElement selenium.WebElement,
 	cssSelector string, timeout int64) (selenium.WebElement, error) {
 	var elm selenium.WebElement
 	var er error
@@ -76,12 +78,12 @@ func (efu ElementFindUtils) WaitElementWTimeOut(parentElement selenium.WebElemen
 			return elm, nil
 		}
 		er = checkErrorType(er)
-		if er.Error() == Others || er.Error() == Unknown {
+		if er.Error() == Others || er.Error() == Unknown || er.Error() == NoSuchElement {
 			return nil, er
 		}
 		time.Sleep(time.Duration(timeout) * time.Second)
 		if time.Now().Unix() > efu.timeout {
-			er = errors.New("timeout")
+			er = errors.New(TimeOut)
 			break
 		}
 	}
@@ -89,7 +91,7 @@ func (efu ElementFindUtils) WaitElementWTimeOut(parentElement selenium.WebElemen
 }
 
 // WaitUntilClickable
-func (efu ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
+func (efu *ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 	cssSelector string, index int) (bool, error) {
 	var er error
 	for true {
@@ -99,6 +101,8 @@ func (efu ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 		if er == nil {
 			return true, nil
 		}
+
+		er = checkErrorType(er)
 		if er != nil && er.Error() == Others {
 			return false, er
 		}
@@ -109,9 +113,9 @@ func (efu ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 		// execute script after wait
 		elmIndexExe := ""
 		if index < 0 {
-			elmIndexExe = "$(" + cssSelector + ")" + ".click()"
+			elmIndexExe = "$('" + cssSelector + "')" + ".click()"
 		} else {
-			elmIndexExe = "$(" + cssSelector + ")" + "[" + strconv.Itoa(index) + "]" + ".click()"
+			elmIndexExe = "$('" + cssSelector + "')" + "[" + strconv.Itoa(index) + "]" + ".click()"
 		}
 
 		_, er = efu.Driver.ExecuteScript(elmIndexExe, []interface{}{})
@@ -120,12 +124,12 @@ func (efu ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 		}
 		// return error if error is [unknown, others]
 		er = checkErrorType(er)
-		if er.Error() == Others {
+		if er != nil && (er.Error() == Others || er.Error() == NoSuchElement) {
 			return false, er
 		}
 		if time.Now().Unix() > efu.timeout {
 			er = errors.New("timeout")
-			break
+			return false, er
 		}
 
 		time.Sleep(time.Duration(efu.Wait) * time.Second)
@@ -134,7 +138,7 @@ func (efu ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 }
 
 // GetElementRetrieve return element after retry
-func (efu ElementFindUtils) GetElementRetrieve(parentElement selenium.WebElement,
+func (efu *ElementFindUtils) GetElementRetrieve(parentElement selenium.WebElement,
 	cssSelector string) (selenium.WebElement, error) {
 
 	var elm selenium.WebElement
@@ -151,7 +155,7 @@ func (efu ElementFindUtils) GetElementRetrieve(parentElement selenium.WebElement
 }
 
 // findElement return element by css selector
-func (efu ElementFindUtils) findElement(parentElement selenium.WebElement,
+func (efu *ElementFindUtils) findElement(parentElement selenium.WebElement,
 	cssSelector string) (selenium.WebElement, error) {
 	elm, er := parentElement.FindElement(selenium.ByCSSSelector, cssSelector)
 	return elm, er

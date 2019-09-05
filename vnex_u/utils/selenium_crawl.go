@@ -49,9 +49,9 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				// click view more
 				efu := SU.NewEFU(detailDriver, 3)
 				_, er = efu.WaitUntilClickable(viewMoreRepE[idxViewMore],
-					".txt_view_more a.view_all_reply", idxViewMore)
+					".txt_view_more a.view_all_reply", -1)
 				if er != nil {
-					panic(".txt_view_more a.view_all_reply " + er.Error())
+					panic(".txt_view_more a.view_all_reply " + er.Error() + " len more then 1")
 					countE++
 					break
 				}
@@ -80,7 +80,7 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				// click view more
 				efu := SU.NewEFU(detailDriver, 3)
 				_, er = efu.WaitUntilClickable(viewFullCmtsE[idxViewFull],
-					".txt_view_more a.view_all_reply", idxViewFull)
+					".txt_view_more a.view_all_reply", -1)
 				if er != nil {
 					panic(".txt_view_more a.view_all_reply " + er.Error())
 					countE++
@@ -103,6 +103,11 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 		if len(subCmtE) == 0 {
 			detailCmt, er := GetDetailCmt(cmtItem, linkCrwl)
 			if er != nil || detailCmt.Content == "" {
+				if er != nil {
+					log.Println(er.Error())
+				} else {
+					fmt.Println("content empty")
+				}
 				continue
 			}
 			// check detail comment not exist in map comments <= add
@@ -113,6 +118,11 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 			// get first comment
 			firstComment, er := GetDetailCmt(cmtItem, linkCrwl)
 			if er != nil || firstComment.Content == "" {
+				if er != nil {
+					log.Println(er.Error())
+				} else {
+					fmt.Println("content empty")
+				}
 				continue
 			}
 			// check detail comment not exist in map comments <= add
@@ -122,8 +132,14 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 			// get list of reply comment on sub_comment detail
 			for i := 0; i < len(subCmtE); i++ {
+				fmt.Println("reply comment, ", subCmtE[i])
 				replyComment, er := GetDetailCmt(subCmtE[i], linkCrwl)
 				if er != nil || replyComment.Content == "" {
+					if er != nil {
+						log.Println(er.Error())
+					} else {
+						fmt.Println("content empty")
+					}
 					continue
 				}
 				// check detail comment not exist in map comments <= add
@@ -146,7 +162,7 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 			if er != nil {
 				log.Println("Error, can not count profile from vnexpress_users, ", er.Error())
-				continue
+				panic(er.Error())
 			}
 
 			// only insert if not exist
@@ -196,12 +212,14 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	profileLink, er := userInfoE.GetAttribute("href")
 	if er != nil {
 		log.Println("Error, can not get profile user, ", linkCrwl.Link, er.Error())
+		panic(er.Error() + " " + linkCrwl.Link)
 		return detailComment, er
 	}
 
 	userName, er := userInfoE.Text()
 	if er != nil {
 		log.Println("Error, can not get user name, ", linkCrwl.Link, er.Error())
+		panic(er.Error() + " " + linkCrwl.Link)
 		return detailComment, er
 	}
 
@@ -210,20 +228,21 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 
 	// click view full_content comment
 	var fullCmtText = ""
-	cmtsE, er := cmtItem.FindElement(
-		selenium.ByCSSSelector, "p.full_content")
-	if er == nil {
+	// click view content_more
+	efu := SU.NewEFU(nil, 10)
+	cmtsE, fullCmter := efu.WaitElementWTimeOut(cmtItem, "p.full_content", int64(2))
+	if fullCmter == nil {
 		fullCmtText, er = cmtsE.Text()
 		if er != nil {
-			log.Println("eror on get full_content comment value, ", linkCrwl, er.Error())
 			return detailComment, er
 		}
-	} else {
+	}
+	if fullCmter != nil {
 		// click view content_more
-		efu := SU.NewEFU(nil, 5)
+		efu := SU.NewEFU(nil, 10)
 		cmtmoresE, er := efu.WaitElementWTimeOut(cmtItem, ".content_more", int64(2))
+
 		if er != nil {
-			panic(".content_more " + er.Error())
 			return detailComment, er
 		}
 

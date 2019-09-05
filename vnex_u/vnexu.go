@@ -199,12 +199,12 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 	}
 
 	// pagination
-	_, er = detailDriver.FindElement(
+	paginationsNextE, _ := detailDriver.FindElements(
 		selenium.ByCSSSelector,
 		"#pagination a.next")
 
 	var detailComments = []structs.DetailComment{}
-	if er != nil {
+	if len(paginationsNextE) == 0 {
 		detailComments = structs.GetAllDetailCmts(detailDriver, linkCrwl, vnexUsersC)
 	} else {
 		countE := 0
@@ -214,21 +214,14 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 			detailComments = append(detailComments, cmtPaginate...)
 
 			// find element next pagination
-			paginationsNextE, er := detailDriver.FindElements(
-				selenium.ByCSSSelector,
-				"#pagination a.next")
 			fmt.Println("Pagination-------------------------", len(detailComments),
 				len(paginationsNextE), er, linkCrwl.Link)
-			if len(paginationsNextE) == 0 {
-				break
-			}
 
 			for idx, paginationNext := range paginationsNextE {
 				// click next page
 				efu := SU.NewEFU(detailDriver, 3)
 				_, er = efu.WaitUntilClickable(paginationNext, "#pagination a.next", idx)
 				if er != nil {
-					panic("#pagination a.next " + er.Error())
 					countE++
 					break
 				}
