@@ -11,6 +11,7 @@ import (
 
 	"sync"
 
+	SU "../selenium_utils"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 
 	"regexp"
@@ -166,7 +167,12 @@ func updateLinksUserProfile(profileLink structs.ProfileUser) {
 		}
 
 		for _, loadMoreButton := range loadMoreContentsE {
-			loadMoreButton.Click()
+			efu := SU.NewEFU(webDriver, 5)
+			_, er = efu.WaitUntilClickable(loadMoreButton, ".xemthem a#load_more_comment", -1)
+			if er != nil {
+				log.Println("Error, can not click load more content profile page, ", er.Error())
+				continue
+			}
 			time.Sleep(1500 * time.Microsecond)
 		}
 	}
@@ -369,19 +375,22 @@ func initProfileRequest(profileLink structs.Link) {
 		selenium.ByCSSSelector,
 		".view_more_coment")
 	if er == nil {
-		viewMoreE.Click()
-		time.Sleep(5 * time.Second)
+		efu := SU.NewEFU(webDriver, 5)
+		_, er = efu.WaitUntilClickable(viewMoreE, ".view_more_coment", -1)
+		if er != nil {
+			return
+		}
 	}
 
 	// pagination
-	_, er = webDriver.FindElement(
+	paginationsNextE, _ := webDriver.FindElements(
 		selenium.ByCSSSelector,
 		"#pagination a.next")
 
 	var detailComments = []structs.DetailComment{}
 	linkCrwl := structs.LinkCrwl{
 		Link: profileLink.Link}
-	if er != nil {
+	if len(paginationsNextE) == 0 {
 		detailComments = structs.GetAllDetailCmts(webDriver, linkCrwl, vnexUsersC)
 	} else {
 		countE := 0
@@ -391,18 +400,20 @@ func initProfileRequest(profileLink structs.Link) {
 			detailComments = append(detailComments, cmtPaginate...)
 
 			// find element next pagination
-			paginationsNextE, er := webDriver.FindElements(
-				selenium.ByCSSSelector,
-				"#pagination a.next")
 			fmt.Println("Pagination-------------------------", len(detailComments),
 				len(paginationsNextE), er, profileLink.Link)
+
+			paginationsNextE, _ = webDriver.FindElements(
+				selenium.ByCSSSelector,
+				"#pagination a.next")
 			if len(paginationsNextE) == 0 {
 				break
 			}
 
-			for _, paginationNext := range paginationsNextE {
+			for idx, paginationNext := range paginationsNextE {
 				// click next page
-				er := paginationNext.Click()
+				efu := SU.NewEFU(webDriver, 3)
+				_, er = efu.WaitUntilClickable(paginationNext, "#pagination a.next", idx)
 				if er != nil {
 					countE++
 					break

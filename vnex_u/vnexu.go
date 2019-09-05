@@ -193,7 +193,6 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 		efu := SU.NewEFU(detailDriver, 5)
 		_, er = efu.WaitUntilClickable(viewMoreE, ".view_more_coment", -1)
 		if er != nil {
-			panic(".view_more_coment " + er.Error())
 			return
 		}
 	}
@@ -216,6 +215,13 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 			// find element next pagination
 			fmt.Println("Pagination-------------------------", len(detailComments),
 				len(paginationsNextE), er, linkCrwl.Link)
+
+			paginationsNextE, _ = detailDriver.FindElements(
+				selenium.ByCSSSelector,
+				"#pagination a.next")
+			if len(paginationsNextE) == 0 {
+				break
+			}
 
 			for idx, paginationNext := range paginationsNextE {
 				// click next page
