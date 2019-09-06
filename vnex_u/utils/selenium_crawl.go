@@ -104,7 +104,7 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 				if er != nil {
 					log.Println(er.Error())
 				} else {
-					fmt.Println("content empty")
+					fmt.Println("---------------------------content empty----------------------------")
 				}
 				continue
 			}
@@ -196,7 +196,8 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	// get user-info from .nickname
 	efu := SU.NewEFU(nil, 10)
 	userInfoE, er = efu.WaitElementWTimeOut(cmtItem, ".nickname", int64(2))
-	if er != nil && er.Error() == SU.NoSuchElement {
+	if er != nil {
+		fmt.Println("--------------error nickname---------------, ", er.Error())
 		// get user-info from .avata_coment
 		efu := SU.NewEFU(nil, 10)
 		userInfoE, er = efu.WaitElementWTimeOut(cmtItem, ".avata_coment", int64(2))
