@@ -9,6 +9,8 @@ import (
 	"github.com/tebeka/selenium"
 )
 
+// @TODO: implement findElements list of element by waiting
+
 const (
 	NoSuchElement        = "no such element"
 	StaleElementRef      = "stale element reference"
