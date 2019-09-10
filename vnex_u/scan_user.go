@@ -426,6 +426,8 @@ func initProfileRequest(profileLink structs.Link) {
 		}
 	}
 
+	detailComments = structs.GetUniqueDetailCmt(detailComments)
+
 	// update crawler link
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	_, er = vnexLinksC.UpdateOne(ctx,

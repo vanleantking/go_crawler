@@ -239,6 +239,8 @@ func initRequest(linkCrwl structs.LinkCrwl) {
 		}
 	}
 
+	detailComments = structs.GetUniqueDetailCmt(detailComments)
+
 	// insert crawler link
 	linkCrw := structs.LinkCrawler{
 		ID:           primitive.NewObjectID(),

@@ -92,6 +92,30 @@ func (efu *ElementFindUtils) WaitElementWTimeOut(parentElement selenium.WebEleme
 	return nil, er
 }
 
+// WaitElementWTimeOut return elements after timeout
+func (efu *ElementFindUtils) WaitElementsWTimeOut(parentElement selenium.WebElement,
+	cssSelector string, timeout int64) ([]selenium.WebElement, error) {
+	var elms = make([]selenium.WebElement, 0)
+	var er error
+
+	for true {
+		elms, er = efu.findElements(parentElement, cssSelector)
+		if er == nil {
+			return elms, nil
+		}
+		er = checkErrorType(er)
+		if er.Error() == Others || er.Error() == Unknown || er.Error() == NoSuchElement {
+			return elms, er
+		}
+		time.Sleep(time.Duration(timeout) * time.Second)
+		if time.Now().Unix() > efu.timeout {
+			er = errors.New(TimeOut)
+			break
+		}
+	}
+	return elms, er
+}
+
 // WaitUntilClickable
 func (efu *ElementFindUtils) WaitUntilClickable(element selenium.WebElement,
 	cssSelector string, index int) (bool, error) {
@@ -161,6 +185,13 @@ func (efu *ElementFindUtils) findElement(parentElement selenium.WebElement,
 	cssSelector string) (selenium.WebElement, error) {
 	elm, er := parentElement.FindElement(selenium.ByCSSSelector, cssSelector)
 	return elm, er
+}
+
+// findElement return element by css selector
+func (efu *ElementFindUtils) findElements(parentElement selenium.WebElement,
+	cssSelector string) ([]selenium.WebElement, error) {
+	elms, er := parentElement.FindElements(selenium.ByCSSSelector, cssSelector)
+	return elms, er
 }
 
 func checkErrorType(er error) error {

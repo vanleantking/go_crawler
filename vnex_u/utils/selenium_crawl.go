@@ -38,8 +38,9 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 		countE := 0
 		var cmtItem = commentItemE[indexCmtItem]
 		for {
-			viewMoreRepE, er := cmtItem.FindElements(
-				selenium.ByCSSSelector, ".txt_view_more a.view_all_reply")
+			efu := SU.NewEFU(detailDriver, 10)
+			viewMoreRepE, er := efu.WaitElementsWTimeOut(cmtItem, ".txt_view_more a.view_all_reply", 2)
+
 			fmt.Println("Error txt_view_more, ", er, len(viewMoreRepE))
 			if len(viewMoreRepE) == 0 {
 				break
@@ -67,9 +68,10 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 
 		// click icon_show_full_comment
 		for {
-			viewFullCmtsE, er := cmtItem.FindElements(
-				selenium.ByCSSSelector,
-				".content_less .icon_show_full_comment")
+			// @TODO: find elements by wait seconds error: stale element reference:
+			// stale element reference: element is not attached to the page document
+			efu := SU.NewEFU(detailDriver, 10)
+			viewFullCmtsE, er := efu.WaitElementsWTimeOut(cmtItem, ".content_less .icon_show_full_comment", 2)
 			fmt.Println("Error icon_show_full_comment, ", er, len(viewFullCmtsE))
 			if len(viewFullCmtsE) == 0 {
 				break
@@ -95,8 +97,8 @@ func GetAllDetailCmts(detailDriver selenium.WebDriver,
 		// (sub_comment[sub_comment_item(full_content, user_status)])
 
 		// check length .sub_comment
-		subCmtE, _ := cmtItem.FindElements(
-			selenium.ByCSSSelector, ".sub_comment_item")
+		efu := SU.NewEFU(detailDriver, 10)
+		subCmtE, _ := efu.WaitElementsWTimeOut(cmtItem, ".sub_comment_item", 2)
 		fmt.Println("len sub commenttttttttttttttttttttttttttt, ", len(subCmtE))
 		if len(subCmtE) == 0 {
 			detailCmt, er := GetDetailCmt(cmtItem, linkCrwl)
@@ -251,4 +253,29 @@ func GetDetailCmt(cmtItem selenium.WebElement,
 	}
 	detailComment.Content = fullCmtText
 	return detailComment, nil
+}
+
+// return unique detail comment from list
+func GetUniqueDetailCmt(detailCmts []DetailComment) []DetailComment {
+	var mapComs = make(map[string][2]string)
+	for _, cmt := range detailCmts {
+		var detail = [2]string{}
+
+		// check content not exist in map
+		if _, ok := mapComs[cmt.Content]; !ok {
+			detail[0] = cmt.ProfileLink
+			detail[1] = cmt.UserName
+			mapComs[cmt.Content] = detail
+		}
+	}
+
+	var result = make([]DetailComment, 0, len(mapComs))
+	for key, value := range mapComs {
+		var detailComment = DetailComment{
+			Content:     key,
+			ProfileLink: value[0],
+			UserName:    value[1]}
+		result = append(result, detailComment)
+	}
+	return result
 }
