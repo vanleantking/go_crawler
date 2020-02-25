@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"./model"
-	"./paging"
-	"./utils"
+	"../model"
+	"../paging"
+	"../utils"
 	"gopkg.in/mgo.v2/bson"
 )
 

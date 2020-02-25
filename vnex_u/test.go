@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
 	"log"
 	"os"
 	"time"
@@ -67,14 +70,71 @@ func main() {
 		return
 	}
 	defer webDriver.Quit()
-	linkCrwl := "https://vnexpress.net/tam-su/cuoc-song-qua-day-du-hanh-phuc-khien-toi-nham-chan-3972483.html"
+	linkCrwl := "https://news.zing.vn/"
 	// client initial request on original url
 	er = webDriver.Get(linkCrwl)
 	if er != nil {
 		panic(er.Error())
 	}
+	time.Sleep(5 * time.Second)
+	elm, er := webDriver.FindElement(selenium.ByCSSSelector, "html")
+	if er != nil {
+		panic(er.Error())
+	}
+	// time.Sleep(5 * time.Second)
 
-	zinitRequest(linkCrwl)
+	size, er := elm.Size()
+	if er != nil {
+		panic(er.Error())
+	}
+	fmt.Println("size, ", size.Width, size.Height, er)
+	zzz, _ := elm.IsDisplayed()
+	fmt.Println("isdisplayed, ", zzz)
+
+	// point, er := elm.LocationInView()
+	// if er != nil {
+	// 	panic(er.Error())
+	// }
+	// fmt.Println("point, ", point.X, point.Y, er)
+	er = elm.MoveTo(size.Width, size.Height)
+	if er != nil {
+		panic(er.Error())
+	}
+	time.Sleep(5 * time.Second)
+	bb, er := elm.Screenshot(true)
+	if er != nil {
+		fmt.Println("err -", er)
+		panic(er.Error())
+	}
+
+	img, _, _ := image.Decode(bytes.NewReader(bb))
+	out, err := os.Create("./img/sreenshot" + "name" + ".png")
+	if err != nil {
+		fmt.Println("err -", err)
+		panic(err.Error())
+	}
+
+	err = png.Encode(out, img)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// zinitRequest(linkCrwl)
+}
+
+func SaveImage(foto []byte, name string) error {
+	img, _, _ := image.Decode(bytes.NewReader(foto))
+	out, err := os.Create("./img/sreenshot" + name + ".png")
+	if err != nil {
+		fmt.Println("err -", err)
+		return err
+	}
+
+	err = png.Encode(out, img)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // insert new link and user vnexpress

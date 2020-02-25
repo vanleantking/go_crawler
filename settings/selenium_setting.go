@@ -219,8 +219,8 @@ func SetChomeCapabilities() selenium.Capabilities {
 	agrs = append(agrs, fmt.Sprintf("--user-agent=%s", UserAgents[rand.Intn(len(UserAgents))]))
 	// have no use UI chrome windows
 	agrs = append(agrs, "--headless")
-	agrs = append(agrs, "--start-maximized")
-	agrs = append(agrs, "--disk-cache-size=500000")
+	// agrs = append(agrs, "--start-maximized")
+	// agrs = append(agrs, "--disk-cache-size=500000")
 
 	// using profile craw with no loading images
 	// agrs = append(agrs, fmt.Sprintf("--profile-directory=%s", CrawlerProfile))
@@ -249,7 +249,6 @@ func SetFreeProxyChomeCapabilities() selenium.Capabilities {
 	agrs = append(agrs, "--start-maximized")
 	agrs = append(agrs, "--no-sandbox")
 	agrs = append(agrs, "--disk-cache-size=500000")
-
 
 	// using profile craw with no loading images
 	// agrs = append(agrs, fmt.Sprintf("--profile-directory=%s", CrawlerProfile))

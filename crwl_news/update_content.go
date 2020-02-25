@@ -7,10 +7,10 @@ import (
 	"net/url"
 	"time"
 
-	"./crawler"
-	"./model"
-	"./paging"
-	"./utils"
+	"../crawler"
+	"../model"
+	"../paging"
+	"../utils"
 	"gopkg.in/mgo.v2/bson"
 )
 

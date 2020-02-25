@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"./crawler"
+	"../crawler"
 )
 
 func main() {
