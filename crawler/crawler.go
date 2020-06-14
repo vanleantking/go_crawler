@@ -134,10 +134,10 @@ func (crw *Crawler) FetchURL() []string {
 	var err error
 	crawl_url := ""
 	for _, config := range crw.WS {
+		fmt.Println("config, ", config)
 		if config.PaginateRegex != "" {
 			for i := 1; i <= 10; i++ {
 				// break 5s before crawl next page
-				time.Sleep(10 * time.Second)
 				crawl_url = config.Url
 				if i > 1 {
 					crawl_url = fmt.Sprintf(config.Url+config.PaginateRegex, i)
@@ -147,6 +147,7 @@ func (crw *Crawler) FetchURL() []string {
 				if err == nil {
 					results = append(results, links...)
 				}
+				time.Sleep(2 * time.Second)
 			}
 		} else {
 			crawl_url = config.Url

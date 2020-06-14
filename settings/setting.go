@@ -47,6 +47,10 @@ const (
 	DefaultInsecCureReqeust = "1"
 	DefaultCacheControl     = "max-age=0"
 	DefaultConnection       = "keep-alive"
+	DefaultSecFetchDest     = "document"
+	DefaultSecFetchMode     = "navigate"
+	DefaultSecFetchSite     = "none"
+	DefaultSecFetchUser     = "?1"
 )
 
 // CrRequest Custom new request type for setting header on http.Request
@@ -90,6 +94,10 @@ type Header struct {
 	UpdateInsecCureRequest string
 	Connection             string
 	Host                   string
+	SecFetchDest           string
+	SecFetchMode           string
+	SecFetchSite           string
+	SecFetchUser           string
 }
 
 // SetUserAgent set user_agent on header
@@ -170,7 +178,7 @@ func (client *Client) Do(req *http.Request, v interface{}) (*http.Response, erro
 	flag := 0
 	var proxy Proxy
 	erRe := errors.New("")
-	for flag < 10 {
+	for flag < 3 {
 		resp, err := client.client.Do(req)
 		if err == nil {
 			return resp, err
@@ -190,14 +198,20 @@ func (client *Client) Do(req *http.Request, v interface{}) (*http.Response, erro
 func (client *Client) InitRequest(url string) (*http.Response, error) {
 	header := Header{
 		Referrer:       "https://www.google.com.vn/",
-		Accept:         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
+		Accept:         "ext/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
 		AcceptLanguage: "vi,en-GB;q=0.9,en;q=0.8,en-US;q=0.7,ja;q=0.6",
-		// Pragma:                 "no-cache",
-		Method: "GET",
+		Pragma:         "no-cache",
+		// Method:         "GET",
+		AcceptEncoding: "gzip, deflate, br",
 		// ContentType:            "text/html; charset=utf-8",
 		UpdateInsecCureRequest: "1",
-		CacheControl:           "max-age=0",
-		Connection:             "keep-alive"}
+		CacheControl:           "no-cache",
+		Connection:             "keep-alive",
+		Host:                   "www.similarweb.com",
+		SecFetchDest:           DefaultSecFetchDest,
+		SecFetchMode:           DefaultSecFetchMode,
+		SecFetchSite:           DefaultSecFetchSite,
+		SecFetchUser:           DefaultSecFetchUser}
 
 	header.SetUserAgent(UserAgents[rand.Intn(len(UserAgents))])
 

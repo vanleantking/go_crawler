@@ -10,12 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"go.mongodb.org/mongo-driver/bson"
 
 	"../model"
 	"../paging"
 	"./utils"
-	"gopkg.in/mgo.v2/bson"
 
 	"../crawler"
 )
@@ -64,7 +65,7 @@ func fetchURL(wg *sync.WaitGroup) {
 			links := crwl.FetchURL()
 			for _, link := range links {
 				ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-				count, er := new_collection.Count(
+				count, er := new_collection.CountDocuments(
 					ctx,
 					bson.M{"url": link})
 				if er != nil {

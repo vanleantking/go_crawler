@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	mongo "github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ClientMGO struct {
@@ -40,10 +41,10 @@ func ConnectMGOLocalDB(dbInfo DBInfo) (error, *ClientMGO) {
 	link := "mongodb://" + dbInfo.Address + ":" + dbInfo.Port + "/" + dbInfo.Database
 	mgoclient := &ClientMGO{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Hour)
 	mgoclient.Ctx = ctx
 	mgoclient.CancelFunc = cancel
-	client, err := mongo.Connect(mgoclient.Ctx, link, nil)
+	client, err := mongo.Connect(mgoclient.Ctx, options.Client().ApplyURI(link), nil)
 	mgoclient.Client = client
 	if err != nil {
 		fmt.Println(err, client)

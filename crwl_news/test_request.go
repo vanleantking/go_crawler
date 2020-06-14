@@ -22,7 +22,7 @@ func main() { //create your file with desired read/write permissions
 	log.Println("check to make sure it works")
 	crwl := settings.NewClient()
 
-	url_api := "https://www.facebook.com/groups/hoixetienchuyen/permalink/493534787852222/"
+	url_api := "https://www.similarweb.com/"
 	// url_api := "https://www.whatsmyip.org/"
 
 	fmt.Println(url_api)
